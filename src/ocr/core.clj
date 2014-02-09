@@ -29,10 +29,8 @@
   (log/dbg)
   (log/dbg "digit-patterns:" )
   ; digits-pat-seq 
-  (def dps1 (map #(->> %
-                       (drop 2   )
-                       (take 30  )
-                       (str/join ) ) digits-pat-seq ))
+  (def dps1 (map #(->> % (drop 2) (take 30) (str/join)) 
+                  digits-pat-seq ))
   (doseq [ line dps1 ] (log/msg line) )
 
   (def dps2 (map (partial take 30) dps1) )
@@ -43,6 +41,12 @@
     (doseq [digit line]
       (log/msg (str/join (flatten [\" digit "\" "] )))
     ))
+
+  (def dps4 (apply map concat dps3)
+  (doseq [digit dps4]
+    (->> digit (partition 3)
+               (map log/msg) ))
+  )
 
 )
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
