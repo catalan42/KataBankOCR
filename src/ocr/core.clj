@@ -42,7 +42,7 @@
               digit-line ))
           \newline ]  )))))
 
-(def digit-patterns [ " _     _  _     _  _  _  _  _ "
+(def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
                       "| |  | _| _||_||_ |_   ||_||_|"
                       "|_|  ||_  _|  | _||_|  ||_| _|" ] )
 
