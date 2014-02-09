@@ -11,9 +11,12 @@
                       # | |  | _| _||_||_ |_   ||_||_| #
                       # |_|  ||_  _|  | _||_|  ||_| _| # " )
 
-(defn demux-pat
-  "Demultiplex the pattern for each digit 0..9 from the input pattern sequence."
-  [pat1 pat2 pat3]
+(defn digit-to-str
+  "Format a digit into 3 line string."
+  [digit]
+  { :pre [ (= 9 (count digit)) ] }
+  #_(log/msg "digit-to-str: " (count digit) ":" digit )
+  (map #(str/join (flatten [%1 %2])) (partition 3 digit) (repeat \newline) )
 )
 
 (defn do-tests 
@@ -33,20 +36,22 @@
                   digits-pat-seq ))
   (doseq [ line dps1 ] (log/msg line) )
 
+  (log/msg "\n" "dps2:")
   (def dps2 (map (partial take 30) dps1) )
   (doseq [ line dps2 ] (log/msg line) )
 
+  (log/msg "\n" "dps3:")
   (def dps3 (map #(partition 3 %) dps2 ))
   (doseq [line dps3] 
     (doseq [digit line]
       (log/msg (str/join (flatten [\" digit "\" "] )))
     ))
 
-  (def dps4 (apply map concat dps3)
+  (log/msg "\n" "dps4:")
+  (def dps4 (apply map concat dps3))
+  (log/msg dps4)
   (doseq [digit dps4]
-    (->> digit (partition 3)
-               (map log/msg) ))
-  )
+    (log/msg (digit-to-str digit)) )
 
 )
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
