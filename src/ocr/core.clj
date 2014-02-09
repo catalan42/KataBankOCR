@@ -51,7 +51,11 @@
   (def dps4 (apply map concat dps3))
   (log/msg dps4)
   (doseq [digit dps4]
-    (log/msg (digit-to-str digit)) )
+    (log/msg)
+    (log/msg (digit-to-str digit)) 
+    (log/msg (type (digit-to-str digit))) 
+    (log/msg (int (digit-to-str digit))) 
+  )
 
 )
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
