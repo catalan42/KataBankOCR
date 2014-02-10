@@ -50,19 +50,15 @@
   "Parse an account number entry from the machine."
   [entry]
   { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
-           (apply = (flatten [ \space (last digits-str) ] )) ; last line blank
+           (apply = (flatten [ \space (last entry) ] )) ; last line blank
          ] }
 )
 
 (defn parse-digits
   "Parse a string of digits from the machine."
   [digits-str]
-
-  (assert (= 4 (first (shape digits-str)) ))
-  (let [t1 (str/join (flatten [ \space (last digits-str) ])) 
-          _ (log/msg (str "flatten '" t1 "'"))
-          _ (assert (apply = t1 ))
-        t2 (take 3 digits-str)
+  (assert (= 3 (first (shape digits-str)) ))
+  (let [t2 digits-str
           _ (log/trace)
           _ (log/trace "digit-patterns:" )
           _ (doseq [ line t2 ] (log/trace (str/join line)) )
