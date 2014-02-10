@@ -59,7 +59,7 @@
   "Parse a set of 3 digit lines from the machine."
   [digit-lines]
   { :pre [(let [ [nrows ncols] (shape digit-lines) ]
-             (and (= 3 nrows )           ; 3 lines
+             (and (= 3 nrows )             ; 3 lines
                   (= 0 (rem ncols 3)) )) ] ; multiple of 3
   }
   (->> digit-lines                   ; shape=[3 3n]   where n=num-digits
@@ -74,10 +74,9 @@
            (apply = (into [ \space ] (last entry) ))  ; last line blank
          ] 
     :post [ (= (shape %) [9 9] ) ] }
-  (parse-digits (take 3 entry))
-)
+  (parse-digits (take 3 entry)) )
 
-(def all-digpats     (parse-digits digit-patterns) )
+(def all-digpats    (parse-digits digit-patterns))
 (def digkey-digpat  (zipmap digkeys all-digpats ))
 
 (defn do-tests 
@@ -99,32 +98,31 @@
         (mapv #(take 18 %) digit-patterns) )))
 
   (let [
-        t3 (parse-digits (mapv #(->>  %
-                                      (drop  3 )
-                                      (take 27 ) ) digit-patterns) )
-          _ (log/msg (str "digits 1-9" ))
-          _ (log/msg (digpats-to-str t3 ))
+        dig-1-9 (parse-digits 
+                  (mapv #(->> %
+                              (drop  3 )
+                              (take 27 ) ) digit-patterns ))
+          _ (log/msg (str "dig-1-9" ))
+          _ (log/msg (digpats-to-str dig-1-9 ))
 
-        n123 (mapv digkey-digpat [ :one :two :three ] )
-          _ (log/msg (str "n123" \newline (digpats-to-str n123)))
+        dig-123 (mapv digkey-digpat [ :one :two :three ] )
+          _ (log/msg "dig-123" )
+          _ (log/msg (digpats-to-str dig-123))
 
-        n19 (mapv digkey-digpat [ :one :two :three :four :five :six :seven :eight :nine ] )
+        key-1-9 (mapv digkey-digpat [ :one :two :three :four :five :six :seven :eight :nine ] )
           _ (log/msg )
-          _ (log/msg "n19  shape=" (shape n19) )
-          _ (log/msg (digpats-to-str n19))
+          _ (log/msg "key-1-9  shape=" (shape key-1-9) )
+          _ (log/msg (digpats-to-str key-1-9))
 
-        n19-str [ "    _  _     _  _  _  _  _ "
+        str-1-9 [ "    _  _     _  _  _  _  _ "
                   "  | _| _||_||_ |_   ||_||_|"
                   "  ||_  _|  | _||_|  ||_| _|" 
                   "                           " ]
-
-        n19-digpats (parse-entry n19-str)
+        str19-digpats (parse-entry str-1-9)
           _ (log/msg )
-          _ (log/msg "n19-digpats"  )
-          _ (log/msg (digpats-to-str n19-digpats))
-  ]
-
-  )
+          _ (log/msg "str19-digpats"  )
+          _ (log/msg (digpats-to-str str19-digpats))
+  ])
 )
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
