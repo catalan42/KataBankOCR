@@ -44,15 +44,14 @@
 
 (def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
                               "| |  | _| _||_||_ |_   ||_||_|"
-                              "|_|  ||_  _|  | _||_|  ||_| _|"
-                              "                              " ] )
+                              "|_|  ||_  _|  | _||_|  ||_| _|" ] )
 
 (defn parse-entry
   "Parse an account number entry from the machine."
   [entry]
-  { :pre [ (= [4 27] (shape entry) ) ]
-           } ; 4 lines, 27 char/line
-  (log/msg "row 4: " (apply =  (flatten [ \space (nth entry 3 ) ])) )
+  { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
+           (apply = (flatten [ \space (last digits-str) ] )) ; last line blank
+         ] }
 )
 
 (defn parse-digits
