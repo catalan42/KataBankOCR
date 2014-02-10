@@ -23,17 +23,22 @@
            sub-shape        (shape (first array-seq)) ]
        (into [curr-dim] sub-shape)) ))
 
+(def digit-to-lines 
+  "Format a single digit into 3 separate lines"
+  (memoize 
+    (fn [digit]
+      { :pre [ (= [9] (shape digit)) ] }
+      (vec (partition 3 digit)) )))
+
 (defn digit-to-str
-  "Format a digit into 3 line string."
+  "Format a digit into a single 3-line string."
   [digit]
   { :pre [ (= 9 (count digit)) ] }
-  (str/join 
-    (mapv #(str/join (flatten [%1 %2])) 
-           (partition 3 digit)  (repeat \newline) ))
-)
+  (str/join (flatten 
+    [ (interpose \newline  (digit-to-lines digit)) ] )))
 
 (defn digits-to-str
-  "Format a sequence of digits into a 3 line string."
+  "Format a sequence of digits into a single 3-line string."
   [digits]
   { :pre [ (= 9 (second (shape digits))) ] }
   (apply str
@@ -41,18 +46,10 @@
       (str/join 
         (flatten [
           (for [digit digits] 
-            (let [digit-rows (partition 3 digit) 
+            (let [digit-rows (digit-to-lines digit)
                   digit-line (nth digit-rows out-row) ]
               digit-line ))
           \newline ]  )))))
-
-(defn parse-entry
-  "Parse an account number entry from the machine."
-  [entry]
-  { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
-           (apply = (flatten [ \space (last entry) ] )) ; last line blank
-         ] }
-)
 
 (defn parse-digits
   "Parse a string of digits from the machine."
@@ -84,32 +81,60 @@
   )
 )
 
+(def all-digits  (parse-digits digit-patterns) )
+(def digit-keys    [:zero :one :two :three :four :five :six :seven :eight :nine ] )
+(def digits-map  (zipmap digit-keys all-digits ))
+
+(defn parse-entry
+  "Parse an account number entry from the machine."
+  [entry]
+  { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
+            ; last line blank
+         ] 
+    :post [ (= (shape %) [9 9] ) ] }
+  (log/msg "flatten...'" (str/join (flatten [ \space (last entry) ] )) "'" )
+  (apply = (flatten [ \space (last entry) ] ))
+  (parse-digits (take 3 entry))
+)
+
 (defn do-tests 
   "Documents (& tests) regex stuff."
   []
 
+  (log/msg ":three")
+  (log/msg (digit-to-str  (digits-map :three)))
+
   (parse-digits digit-patterns)
 
   (let [  _ (assert (= (shape digit-patterns) [3 30] ))
-        all-digits (parse-digits digit-patterns)
           _ (assert (= (shape all-digits ) [10 9] ))
-          _ (log/msg (str "all-digits:" \newline (digits-to-str all-digits) ))
+          _ (log/dbg (str "all-digits:" \newline (digits-to-str all-digits) ))
 
         t2 (parse-digits (mapv #(take 27 %) digit-patterns) )
           _ (log/msg (str "t2:" \newline (digits-to-str t2 )))
-          _ (assert (= (shape t2) [9 9] ))
 
         t3 (parse-digits (mapv #(->>  %
                                       (drop  3 )
                                       (take 27 ) ) digit-patterns) )
           _ (log/msg (str "t3:" \newline (digits-to-str t3 )))
 
-        digits-map (zipmap [:zero :one :two :three :four :five :six :seven :eight :nine ]
-                           all-digits )
+        n123 (mapv digits-map [ :one :two :three ] )
+          _ (log/msg (str "n123" \newline (digits-to-str n123)))
 
-          _ (doseq [ dig-name (keys digits-map) ]
-              (log/msg (str \newline dig-name \newline  
-                            (digits-to-str [ (digits-map dig-name) ]) )))
+        n19 (mapv digits-map [ :one :two :three :four :five :six :seven :eight :nine ] )
+          _ (log/msg "(shape n19)" (shape n19) )
+
+        n19-str [ "    _  _     _  _  _  _  _ "
+                  "  | _| _||_||_ |_   ||_||_|"
+                  "  ||_  _|  | _||_|  ||_| _|" 
+                  "                           " ]
+          _ (log/msg "(shape n19-str) " (shape n19-str) )
+          _ (log/msg (str "(last n19-str) '" (last n19-str) \' ))
+        t4 (parse-entry n19-str)
+          _ (log/msg "t4" (shape t4) )
+        t5 (digits-to-str t4)
+          _ (log/msg "t5" (shape t5) )
+          _ (log/msg t5)
   ]
 
   )
