@@ -64,23 +64,23 @@
           _ (log/msg (str "flatten '" t1 "'"))
           _ (assert (apply = t1 ))
         t2 (take 3 digits-str)
-          _ (log/msg)
-          _ (log/msg "digit-patterns:" )
-          _ (doseq [ line t2 ] (log/msg (str/join line)) )
+          _ (log/trace)
+          _ (log/trace "digit-patterns:" )
+          _ (doseq [ line t2 ] (log/trace (str/join line)) )
 
         dps2 (map #(partition 3 %) t2 )
           _  (log/msg "shape dps2" (shape dps2))
           _  (assert (= (shape dps2) [3 10 3] ))
+          _ (do
+          (log/trace)
+          (log/trace "dps2:" (shape dps2) )
+          (doseq [line dps2] 
+            (doseq [digit line]
+              (log/trace (str/join (flatten [\" digit "\" "] )))
+            )))
+        dps3 (map vec (apply map concat dps2))
+          _ (assert (= (shape dps3) [10 9] ))
   ]
-    (log/trace)
-    (log/trace "dps2:" (shape dps2) )
-    (doseq [line dps2] 
-      (doseq [digit line]
-        (log/trace (str/join (flatten [\" digit "\" "] )))
-      ))
-
-    (def dps3 (map vec (apply map concat dps2)))
-    (assert (= (shape dps3) [10 9] ))  ; [digit all-chars]
 
     (log/trace)
     (log/trace "dps3:" (shape dps3))
