@@ -24,7 +24,7 @@
   [digit]
   { :pre [ (= 9 (count digit)) ] }
   (str/join 
-    (map #(str/join (flatten [%1 %2])) 
+    (mapv #(str/join (flatten [%1 %2])) 
          (partition 3 digit)  (repeat \newline) ))
 )
 
@@ -58,8 +58,8 @@
   "Parse a string of digits from the machine."
   [digits-str]
   (let [dims  (shape digits-str)
-          _ (assert (= 3 (first dims) )) ; number of lines
-          _ (assert (= 0 (rem (second dims) 3) )) ; multiple of 3
+          _ (assert (and (= 3 (first dims) ) ; number of lines
+                         (= 0 (rem (second dims) 3)) )) ; multiple of 3
         num-digits (/ (second dims) 3)
           _ (log/trace "num-digits" num-digits)
 
