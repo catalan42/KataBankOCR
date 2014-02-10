@@ -80,18 +80,16 @@
             )))
         dps3 (map vec (apply map concat dps2))
           _ (assert (= (shape dps3) [10 9] ))
+          _ (do
+              (log/trace)
+              (log/trace "dps3:" (shape dps3))
+              (doseq [digit dps3]
+                (log/trace ) 
+                (log/trace digit)
+                (log/trace (digit-to-str digit)) 
+              ))
+          _ (log/msg (str "All digits:\n" (digits-to-str dps3 )))
   ]
-
-    (log/trace)
-    (log/trace "dps3:" (shape dps3))
-    (doseq [digit dps3]
-      (log/trace ) 
-      (log/trace digit)
-      (log/trace (digit-to-str digit)) 
-    )
-
-    (log/msg "All digits:")
-    (log/msg (digits-to-str dps3 ))
 
   )
 )
