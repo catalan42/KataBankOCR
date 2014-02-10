@@ -12,7 +12,7 @@
                               "| |  | _| _||_||_ |_   ||_||_|"
                               "|_|  ||_  _|  | _||_|  ||_| _|" ] )
 
-(def ^:const digit-keys [ :zero :one :two :three :four 
+(def ^:const digkeys [ :zero :one :two :three :four 
                           :five :six :seven :eight :nine ] )
 
 (defn shape
@@ -30,9 +30,9 @@
   "Format a sequence of digit patterns into 3 separate lines"
   [digpats]
   { :pre [ (= 9 (second (shape digpats))) ] }
-  (->> digpats                     ; shape=[n 9]
-       (mapv #(partition 3 %) )   ; shape=[n 3 3]
-       (apply mapv concat     )   ; shape=[3n 3]
+  (->> digpats                   ; shape=[n 9]
+       (mapv #(partition 3 %) )  ; shape=[n 3 3]
+       (apply mapv concat     )  ; shape=[3n 3]
   ))
 
 (defn lines-to-str
@@ -77,35 +77,38 @@
   (parse-digits (take 3 entry))
 )
 
-(def all-digits  (parse-digits digit-patterns) )
-(def digits-map  (zipmap digit-keys all-digits ))
+(def all-digpats     (parse-digits digit-patterns) )
+(def digkey-digpat  (zipmap digkeys all-digpats ))
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
   []
 
-  (log/msg ":three")
-  (log/msg (digpat-to-str  (digits-map :three)))
-
-  (parse-digits digit-patterns)
-
   (assert (= (shape digit-patterns) [3 30] ))
-  (assert (= (shape all-digits ) [10 9] ))
-  (log/dbg (str "all-digits:" \newline (digpats-to-str all-digits) ))
+  (assert (= (shape all-digpats)    [10 9] ))
+  (log/msg "all-digpats:" )
+  (log/msg (digpats-to-str all-digpats) )
+
+  (log/msg ":three")
+  (log/msg (digpat-to-str (digkey-digpat :three)))
+
+  (log/msg "digits 0-5:" )
+  (log/msg 
+    (digpats-to-str 
+      (parse-digits 
+        (mapv #(take 18 %) digit-patterns) )))
 
   (let [
-        t2 (parse-digits (mapv #(take 27 %) digit-patterns) )
-          _ (log/msg (str "t2:" \newline (digpats-to-str t2 )))
-
         t3 (parse-digits (mapv #(->>  %
                                       (drop  3 )
                                       (take 27 ) ) digit-patterns) )
-          _ (log/msg (str "t3:" \newline (digpats-to-str t3 )))
+          _ (log/msg (str "digits 1-9" ))
+          _ (log/msg (digpats-to-str t3 ))
 
-        n123 (mapv digits-map [ :one :two :three ] )
+        n123 (mapv digkey-digpat [ :one :two :three ] )
           _ (log/msg (str "n123" \newline (digpats-to-str n123)))
 
-        n19 (mapv digits-map [ :one :two :three :four :five :six :seven :eight :nine ] )
+        n19 (mapv digkey-digpat [ :one :two :three :four :five :six :seven :eight :nine ] )
           _ (log/msg )
           _ (log/msg "n19  shape=" (shape n19) )
           _ (log/msg (digpats-to-str n19))
@@ -126,9 +129,7 @@
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
 
-
-
 (defn -main [& args]
-  (log/dbg "Main program")
+  (log/msg "Main program")
 )
 
