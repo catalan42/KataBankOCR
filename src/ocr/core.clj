@@ -8,6 +8,10 @@
 
 (log/set-min-level log/EXTRA)
 
+(def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
+                              "| |  | _| _||_||_ |_   ||_||_|"
+                              "|_|  ||_  _|  | _||_|  ||_| _|" ] )
+
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
    would return [4 3]). Only the first element of each seq is evaluated 
@@ -42,10 +46,6 @@
               digit-line ))
           \newline ]  )))))
 
-(def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
-                              "| |  | _| _||_||_ |_   ||_||_|"
-                              "|_|  ||_  _|  | _||_|  ||_| _|" ] )
-
 (defn parse-entry
   "Parse an account number entry from the machine."
   [entry]
@@ -63,7 +63,7 @@
         num-digits (/ (second dims) 3)
           _ (log/trace "num-digits" num-digits)
 
-        dps2 (map #(partition 3 %) digits-str)
+        dps2 (mapv #(partition 3 %) digits-str)
           _ (log/trace "shape dps2" (shape dps2))
           _ (assert (= (shape dps2) [3 num-digits 3] ))
           _ (do (log/trace (str \newline "dps2: " (shape dps2) ))
@@ -71,17 +71,16 @@
                   (doseq [digit line]
                     (log/trace (str/join (flatten [\" digit "\" "] )))
                   )))
-        dps3 (map vec (apply map concat dps2))
-          _ (assert (= (shape dps3) [10 9] ))
+        dps3 (apply mapv concat dps2)
           _ (do (log/trace (str \newline "dps3: " (shape dps3)))
                 (doseq [digit dps3]
                   (log/trace ) 
                   (log/trace digit)
                   (log/trace (digit-to-str digit)) 
                 ))
-          _ (log/msg (str "All digits:\n" (digits-to-str dps3 )))
+          _ (log/trace (str "All digits:\n" (digits-to-str dps3 )))
   ]
-
+    dps3
   )
 )
 
@@ -91,23 +90,31 @@
 
   (parse-digits digit-patterns)
 
-(comment
-  (let [t1        (vec (map #(take 27 %) digit-patterns))
-          _ (log/msg "t1:" )
-          _ (doall (map #(log/msg (str/join %)) t1 ))
-        t2 (parse-digits t1)
+  (let [  _ (assert (= (shape digit-patterns) [3 30] ))
+        all-digits (parse-digits digit-patterns)
+          _ (assert (= (shape all-digits ) [10 9] ))
+          _ (log/msg (str "all-digits:" \newline (digits-to-str all-digits) ))
+
+        t2 (parse-digits (mapv #(take 27 %) digit-patterns) )
+          _ (log/msg (str "t2:" \newline (digits-to-str t2 )))
+          _ (assert (= (shape t2) [9 9] ))
+
+        t3 (parse-digits (mapv #(->>  %
+                                      (drop  3 )
+                                      (take 27 ) ) digit-patterns) )
+          _ (log/msg (str "t3:" \newline (digits-to-str t3 )))
+
+        digits-map (zipmap [:zero :one :two :three :four :five :six :seven :eight :nine ]
+                           all-digits )
+
+          _ (doseq [ dig-name (keys digits-map) ]
+              (log/msg (str \newline dig-name \newline  
+                            (digits-to-str [ (digits-map dig-name) ]) )))
   ]
+
   )
-
-  (log/dbg "digits-to-str")
-  (log/dbg (digits-to-str [ "abcdefghi" "123456789" ] ))
-
-  (assert (= (shape digit-patterns) [4 30] ))
-  (def all-digits (parse-digits digit-patterns))
-  (assert (= (count all-digits) 10 ))
 )
 
-)
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
 
 
