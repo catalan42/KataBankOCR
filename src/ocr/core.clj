@@ -11,6 +11,7 @@
 (def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
                               "| |  | _| _||_||_ |_   ||_||_|"
                               "|_|  ||_  _|  | _||_|  ||_| _|" ] )
+
 (def ^:const digit-keys [ :zero :one :two :three :four 
                           :five :six :seven :eight :nine ] )
 
@@ -27,9 +28,9 @@
 
 (defn digpats-to-lines
   "Format a sequence of digit patterns into 3 separate lines"
-  [digits]
-  { :pre [ (= 9 (second (shape digits))) ] }
-  (->> digits                     ; shape=[n 9]
+  [digpats]
+  { :pre [ (= 9 (second (shape digpats))) ] }
+  (->> digpats                     ; shape=[n 9]
        (mapv #(partition 3 %) )   ; shape=[n 3 3]
        (apply mapv concat     )   ; shape=[3n 3]
   ))
@@ -42,9 +43,9 @@
 
 (defn digpats-to-str
   "Format a sequence of digit patterns into a single 3-line string."
-  [digits]
-  { :pre [ (= 9 (second (shape digits))) ] }
-  (->> digits
+  [digpats]
+  { :pre [ (= 9 (second (shape digpats))) ] }
+  (->> digpats
       (digpats-to-lines )
       (lines-to-str   ) ))
 
@@ -55,28 +56,15 @@
   (digpats-to-str [digit]) )
 
 (defn parse-digits
-  "Parse a string of digits from the machine."
-  [digits-str]
-  (let [dims  (shape digits-str)
-          _ (assert (and (= 3 (first dims) )            ; 3 lines
-                         (= 0 (rem (second dims) 3)) )) ; multiple of 3
-        num-digits (/ (second dims) 3)
-          _ (log/trace "num-digits" num-digits)
-
-        dps2 (mapv #(partition 3 %) digits-str)
-          _ (log/trace "shape dps2" (shape dps2))
-          _ (assert (= (shape dps2) [3 num-digits 3] ))
-        dps3 (apply mapv concat dps2)
-          _ (do (log/trace (str \newline "dps3: " (shape dps3)))
-                (doseq [digit dps3]
-                  (log/trace ) 
-                  (log/trace digit)
-                  (log/trace (digpat-to-str digit)) 
-                ))
-          _ (log/trace (str "All digits:\n" (digpats-to-str dps3 )))
-  ]
-    dps3
-  )
+  "Parse a set of 3 digit lines from the machine."
+  [digit-lines]
+  { :pre [(let [ [nrows ncols] (shape digit-lines) ]
+             (and (= 3 nrows )           ; 3 lines
+                  (= 0 (rem ncols 3)) )) ] ; multiple of 3
+  }
+  (->> digit-lines                   ; shape=[3 3n]   where n=num-digits
+       (mapv #(partition 3 %)   )    ; shape=[3 n 3]
+       (apply mapv concat       ) )  ; shape=[n 9]
 )
 
 (defn parse-entry
