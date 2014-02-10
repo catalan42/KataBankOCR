@@ -27,11 +27,12 @@
 
 (defn digpats-to-lines
   "Format a sequence of digit patterns into 3 separate lines"
-  [digits] ; shape=[n  9]
+  [digits]
   { :pre [ (= 9 (second (shape digits))) ] }
-  (let [ tmp-n-3-3  (mapv #(partition 3 %) digits)  ; shape=[n 3 3]
-         tmp-3n-3   (apply mapv concat tmp-n-3-3)   ; shape=[3n 3]
-  ] tmp-3n-3 ))
+  (->> digits                     ; shape=[n 9]
+       (mapv #(partition 3 %) )   ; shape=[n 3 3]
+       (apply mapv concat     )   ; shape=[3n 3]
+  ))
 
 (defn lines-to-str
   "Format a sequence of 3 lines into a single 3-line string (including newlines)."
@@ -63,14 +64,14 @@
           _ (log/trace "num-digits" num-digits)
 
         dps2 (mapv #(partition 3 %) digits-str)
-          _ (log/msg "shape dps2" (shape dps2))
+          _ (log/trace "shape dps2" (shape dps2))
           _ (assert (= (shape dps2) [3 num-digits 3] ))
         dps3 (apply mapv concat dps2)
-          _ (do (log/msg (str \newline "dps3: " (shape dps3)))
+          _ (do (log/trace (str \newline "dps3: " (shape dps3)))
                 (doseq [digit dps3]
-                  (log/msg ) 
-                  (log/msg digit)
-                  (log/msg (digpat-to-str digit)) 
+                  (log/trace ) 
+                  (log/trace digit)
+                  (log/trace (digpat-to-str digit)) 
                 ))
           _ (log/msg (str "All digits:\n" (digpats-to-str dps3 )))
   ]
