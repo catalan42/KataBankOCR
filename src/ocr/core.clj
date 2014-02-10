@@ -25,7 +25,7 @@
   { :pre [ (= 9 (count digit)) ] }
   (str/join 
     (mapv #(str/join (flatten [%1 %2])) 
-         (partition 3 digit)  (repeat \newline) ))
+           (partition 3 digit)  (repeat \newline) ))
 )
 
 (defn digits-to-str
