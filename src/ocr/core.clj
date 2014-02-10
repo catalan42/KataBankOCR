@@ -57,32 +57,28 @@
 (defn parse-digits
   "Parse a string of digits from the machine."
   [digits-str]
-  (assert (= 3 (first (shape digits-str)) ))
-  (let [t2 digits-str
-          _ (log/trace)
-          _ (log/trace "digit-patterns:" )
-          _ (doseq [ line t2 ] (log/trace (str/join line)) )
+  (let [dims  (shape digits-str)
+          _ (assert (= 3 (first dims) )) ; number of lines
+          _ (assert (= 0 (rem (second dims) 3) )) ; multiple of 3
+        num-digits (/ (second dims) 3)
+          _ (log/trace "num-digits" num-digits)
 
-        dps2 (map #(partition 3 %) t2 )
-          _  (log/msg "shape dps2" (shape dps2))
-          _  (assert (= (shape dps2) [3 10 3] ))
-          _ (do
-          (log/trace)
-          (log/trace "dps2:" (shape dps2) )
-          (doseq [line dps2] 
-            (doseq [digit line]
-              (log/trace (str/join (flatten [\" digit "\" "] )))
-            )))
+        dps2 (map #(partition 3 %) digits-str)
+          _ (log/trace "shape dps2" (shape dps2))
+          _ (assert (= (shape dps2) [3 num-digits 3] ))
+          _ (do (log/trace (str \newline "dps2: " (shape dps2) ))
+                (doseq [line dps2] 
+                  (doseq [digit line]
+                    (log/trace (str/join (flatten [\" digit "\" "] )))
+                  )))
         dps3 (map vec (apply map concat dps2))
           _ (assert (= (shape dps3) [10 9] ))
-          _ (do
-              (log/trace)
-              (log/trace "dps3:" (shape dps3))
-              (doseq [digit dps3]
-                (log/trace ) 
-                (log/trace digit)
-                (log/trace (digit-to-str digit)) 
-              ))
+          _ (do (log/trace (str \newline "dps3: " (shape dps3)))
+                (doseq [digit dps3]
+                  (log/trace ) 
+                  (log/trace digit)
+                  (log/trace (digit-to-str digit)) 
+                ))
           _ (log/msg (str "All digits:\n" (digits-to-str dps3 )))
   ]
 
