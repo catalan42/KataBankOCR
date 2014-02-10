@@ -73,26 +73,24 @@
                   (log/trace digit)
                   (log/trace (digpat-to-str digit)) 
                 ))
-          _ (log/msg (str "All digits:\n" (digpats-to-str dps3 )))
+          _ (log/trace (str "All digits:\n" (digpats-to-str dps3 )))
   ]
     dps3
   )
 )
 
-(def all-digits  (parse-digits digit-patterns) )
-(def digits-map  (zipmap digit-keys all-digits ))
-
 (defn parse-entry
   "Parse an account number entry from the machine."
   [entry]
   { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
-            ; last line blank
+           (apply = (into [ \space ] (last entry) ))  ; last line blank
          ] 
     :post [ (= (shape %) [9 9] ) ] }
-  (log/msg "flatten...'" (str/join (flatten [ \space (last entry) ] )) "'" )
-  (apply = (flatten [ \space (last entry) ] ))
   (parse-digits (take 3 entry))
 )
+
+(def all-digits  (parse-digits digit-patterns) )
+(def digits-map  (zipmap digit-keys all-digits ))
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
@@ -103,10 +101,11 @@
 
   (parse-digits digit-patterns)
 
-  (let [  _ (assert (= (shape digit-patterns) [3 30] ))
-          _ (assert (= (shape all-digits ) [10 9] ))
-          _ (log/dbg (str "all-digits:" \newline (digpats-to-str all-digits) ))
+  (assert (= (shape digit-patterns) [3 30] ))
+  (assert (= (shape all-digits ) [10 9] ))
+  (log/dbg (str "all-digits:" \newline (digpats-to-str all-digits) ))
 
+  (let [
         t2 (parse-digits (mapv #(take 27 %) digit-patterns) )
           _ (log/msg (str "t2:" \newline (digpats-to-str t2 )))
 
@@ -119,19 +118,19 @@
           _ (log/msg (str "n123" \newline (digpats-to-str n123)))
 
         n19 (mapv digits-map [ :one :two :three :four :five :six :seven :eight :nine ] )
-          _ (log/msg "(shape n19)" (shape n19) )
+          _ (log/msg )
+          _ (log/msg "n19  shape=" (shape n19) )
+          _ (log/msg (digpats-to-str n19))
 
         n19-str [ "    _  _     _  _  _  _  _ "
                   "  | _| _||_||_ |_   ||_||_|"
                   "  ||_  _|  | _||_|  ||_| _|" 
                   "                           " ]
-          _ (log/msg "(shape n19-str) " (shape n19-str) )
-          _ (log/msg (str "(last n19-str) '" (last n19-str) \' ))
-        t4 (parse-entry n19-str)
-          _ (log/msg "t4" (shape t4) )
-        t5 (digpats-to-str t4)
-          _ (log/msg "t5" (shape t5) )
-          _ (log/msg t5)
+
+        n19-digpats (parse-entry n19-str)
+          _ (log/msg )
+          _ (log/msg "n19-digpats"  )
+          _ (log/msg (digpats-to-str n19-digpats))
   ]
 
   )
