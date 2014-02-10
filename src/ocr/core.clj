@@ -43,10 +43,8 @@
   (for [out-row (range 3)]
     (flatten [
       (for [digit digits] 
-        (let [digit-rows (digit-to-lines digit)
-              digit-line (nth digit-rows out-row) ]
-          digit-line ))
-      ]  )))
+        (nth (digit-to-lines digit) out-row) ) ]  
+    )))
 
 (defn digits-to-str
   "Format a sequence of digits into a single 3-line string."
