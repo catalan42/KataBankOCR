@@ -27,7 +27,7 @@
 (defn error  [& msgs] (apply write-to-log  ERROR    msgs ))
 (defn warn   [& msgs] (apply write-to-log  WARN     msgs ))
 (defn msg    [& msgs] (apply write-to-log  MESSAGE  msgs ))
-(defn extra  [& msgs] (apply write-to-log  EXTRA    msgs ))
+(defn ext    [& msgs] (apply write-to-log  EXTRA    msgs ))
 (defn dbg    [& msgs] (apply write-to-log  DEBUG    msgs ))
 (defn trace  [& msgs] (apply write-to-log  TRACE    msgs ))
 
