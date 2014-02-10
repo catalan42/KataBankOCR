@@ -30,26 +30,37 @@
       { :pre [ (= [9] (shape digit)) ] }
       (vec (partition 3 digit)) )))
 
-(defn digit-to-str
-  "Format a digit into a single 3-line string."
-  [digit]
-  { :pre [ (= 9 (count digit)) ] }
-  (str/join (flatten 
-    [ (interpose \newline  (digit-to-lines digit)) ] )))
+(defn lines-to-str
+  "Format a sequence of 3 lines into a single 3-line string (including newlines)."
+  [lines]
+  { :pre [ (= 3 (count lines)) ] }
+  (str/join (flatten [ (interpose \newline  lines) ] )))
+
+(defn digits-to-lines
+  "Format a sequence of digits into 3 separate lines"
+  [digits]
+  { :pre [ (= 9 (second (shape digits))) ] }
+  (for [out-row (range 3)]
+    (flatten [
+      (for [digit digits] 
+        (let [digit-rows (digit-to-lines digit)
+              digit-line (nth digit-rows out-row) ]
+          digit-line ))
+      ]  )))
 
 (defn digits-to-str
   "Format a sequence of digits into a single 3-line string."
   [digits]
   { :pre [ (= 9 (second (shape digits))) ] }
-  (apply str
-    (for [out-row (range 3)]
-      (str/join 
-        (flatten [
-          (for [digit digits] 
-            (let [digit-rows (digit-to-lines digit)
-                  digit-line (nth digit-rows out-row) ]
-              digit-line ))
-          \newline ]  )))))
+  (->> digits
+      (digits-to-lines )
+      (lines-to-str   ) ))
+
+(defn digit-to-str
+  "Format a digit into a single 3-line string."
+  [digit]
+  { :pre [ (= 9 (count digit)) ] }
+  (digits-to-str [digit]) )
 
 (defn parse-digits
   "Parse a string of digits from the machine."
