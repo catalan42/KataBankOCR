@@ -8,17 +8,13 @@
 
 (log/set-min-level log/EXTRA)
 
-(def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
-                              "| |  | _| _||_||_ |_   ||_||_|"
-                              "|_|  ||_  _|  | _||_|  ||_| _|" ] )
-
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
    would return [4 3]). Only the first element of each seq is evaluated 
-   (i.e. a ragged array like [ [1 2] [1 2 3]] would report a shape of [2 2])."
+   (i.e. a ragged array like [ [1 2] [1 2 3]] would return a shape of [2 2])."
    [array-seq]
    (if-not (cci/seqable? array-seq)
-     []
+     []  ; (shape <scalar>) is []
      (let [curr-dim         (count array-seq)
            sub-shape        (shape (first array-seq)) ]
        (into [curr-dim] sub-shape)) ))
@@ -89,6 +85,10 @@
     dps3
   )
 )
+
+(def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
+                              "| |  | _| _||_||_ |_   ||_||_|"
+                              "|_|  ||_  _|  | _||_|  ||_| _|" ] )
 
 (def all-digits  (parse-digits digit-patterns) )
 (def digit-keys    [:zero :one :two :three :four :five :six :seven :eight :nine ] )
