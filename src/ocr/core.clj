@@ -28,6 +28,12 @@
            sub-shape  (shape (first array-seq)) ]
        (into [curr-dim] sub-shape) )))
 
+(defn lines-to-str
+  "Format a sequence of 3 lines into a single 3-line string (including newlines)."
+  [lines]
+  { :pre [ (= 3 (count lines)) ] }
+  (str/join (flatten [ (interpose \newline  lines) ] )))
+
 (defn parse-digits
   "Parse a set of 3 digit lines from the machine."
   [digit-lines]
@@ -39,7 +45,6 @@
        (mapv #(partition 3 %) )     ; shape=[3 n 3]
        (apply mapv concat     ) ))  ; shape=[n 9]
 
-
 (defn parse-entry
   "Parse an account number entry from the machine."
   [entry]
@@ -47,6 +52,10 @@
            (apply = (into [\space] (last entry))) ] ; last line blank
     :post [ (= (shape %) [9 9] ) ] }
   (parse-digits (take 3 entry)) )
+
+(def all-digpats    (parse-digits all-digit-lines))
+(def digkey-digpat  (zipmap all-digkeys all-digpats ))
+(def digpat-digkey  (zipmap all-digpats all-digkeys ))
 
 (defn digpats-to-lines
   "Format a sequence of digit patterns into 3 separate lines"
@@ -57,12 +66,6 @@
        (apply mapv concat     )      ; shape=[3n 3]
        (mapv str/join         )))    ; convert to string
 
-(defn lines-to-str
-  "Format a sequence of 3 lines into a single 3-line string (including newlines)."
-  [lines]
-  { :pre [ (= 3 (count lines)) ] }
-  (str/join (flatten [ (interpose \newline  lines) ] )))
-
 (defn digpats-to-str
   "Format a sequence of digit patterns into a single 3-line string."
   [digpats]
@@ -71,14 +74,22 @@
       (digpats-to-lines )
       (lines-to-str     ) ))
 
-(def all-digpats    (parse-digits all-digit-lines))
-(def digkey-digpat  (zipmap all-digkeys all-digpats ))
+(defn digpats-to-digkeys
+  "Covert a sequence of digit-pattern values into a vector of digit-key values"
+  [digpats]
+  (mapv digpat-digkey digpats) )
 
-(defn digkey-to-lines
+(defn digkeys-to-digpats
+  "Covert a sequence of digit-key values into a vector of digit-pattern values"
+  [digkeys]
+  (mapv digkey-digpat digkeys) )
+
+(defn digkeys-to-lines
   "Covert a sequence of digit-key values into a 3-line digit pattern."
   [digkeys]
   (digpats-to-lines 
-    (mapv digkey-digpat digkeys) ))
+    (digkeys-to-digpats digkeys)) )
+
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
@@ -87,6 +98,7 @@
 
   (assert (= (shape all-digit-lines) [3 30] ))
   (assert (= (shape all-digpats)     [10 9] ))
+  (assert (= (str/join (digkey-digpat :nine) ) " _ |_| _|" ))
 
   (assert (=  (digpats-to-lines 
                 (parse-digits 
@@ -95,36 +107,43 @@
                 "| |  | _| _||_||_ "
                 "|_|  ||_  _|  | _|" ] ))
 
-  (log/msg "digit patterns 2-5:" )
-  (log/msg  (digpats-to-str 
-              (parse-digits 
-                (mapv #(->> % (drop  6 ) (take 12 ) ) all-digit-lines) )))
+  (log/trace "digit patterns 2-5:" )
+  (log/trace  (digpats-to-str 
+                (parse-digits 
+                  (mapv #(->> % (drop  6 ) (take 12 ) ) all-digit-lines) )))
 
-  (log/msg "all-digpats:" )
-  (log/msg (lines-to-str (digpats-to-lines all-digpats) ))
-  (assert (=  (digpats-to-lines all-digpats)
+  (log/trace "digkeys 123" )
+  (log/trace  (lines-to-str 
+                (digkeys-to-lines [ :one :two :three ]) ))
+
+  (assert (= (digpats-to-digkeys all-digpats) all-digkeys ))
+  (assert (= (digkeys-to-digpats all-digkeys) all-digpats ))
+
+  (assert (= (digpats-to-lines all-digpats)
               [ " _     _  _     _  _  _  _  _ "
                 "| |  | _| _||_||_ |_   ||_||_|"
                 "|_|  ||_  _|  | _||_|  ||_| _|"] ))
 
-  (log/msg "digpat ':three'")
-  (log/msg [ (digkey-digpat :three) ] )
-
-  (log/msg "digkeys 123" )
-  (log/msg  (lines-to-str 
-              (digkey-to-lines [ :one :two :three ]) ))
-
-  (log/msg  (lines-to-str 
-              (digkey-to-lines [ :one :two :three ]) ))
+  (assert (= (digkeys-to-lines all-digkeys) all-digit-lines ))
 
   (let [entry-1-9 [ "    _  _     _  _  _  _  _ "
                     "  | _| _||_||_ |_   ||_||_|"
                     "  ||_  _|  | _||_|  ||_| _|"
                     "                           " ]
         ent19-digpats (parse-entry entry-1-9) ]
-    (log/msg)
-    (log/msg "ent19-digpats")
-    (log/msg (digpats-to-str ent19-digpats)) )
+    (log/trace)
+    (log/trace "ent19-digpats")
+    (log/trace (digpats-to-str ent19-digpats)) 
+    (assert (=  (digpats-to-digkeys ent19-digpats)
+                [ :one :two :three :four :five :six :seven :eight :nine ] ))
+  )
+
+  (log/msg)
+  (log/msg "all-digpats conversion")
+  (log/msg (->> all-digpats
+                (digpats-to-digkeys )
+                (digkeys-to-lines   )
+                (lines-to-str       ) ))
 )
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
