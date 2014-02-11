@@ -17,6 +17,20 @@
   "Master list of digit keywords (in order)"
   [ :zero :one :two :three :four :five :six :seven :eight :nine ] )
 
+(def ^:const all-digits
+  "Master list of digits (in order)"
+  (vec (range 10)) )
+
+(def test-data   
+  "A collection of all test-data lines"
+  (str/split-lines (slurp "resources/test-data.txt")) )
+
+(def test-result   
+  "A collection of all correct test-result lines"
+  (->> (slurp "resources/test-result.txt")
+       (str/split-lines )
+       (map str/trim    ) ))
+
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
    would return [4 3]). Only the first element of each seq is evaluated 
@@ -35,7 +49,7 @@
   (str/join (flatten [ (interpose \newline  lines) ] )))
 
 (defn parse-digits
-  "Parse a set of 3 digit lines from the machine."
+  "Parse a set of 3 digit lines from the machine. Returns a digit pattern."
   [digit-lines]
   { :pre [(let [ [nrows ncols] (shape digit-lines) ]
              (and (= 3 nrows )             ; 3 lines
@@ -46,16 +60,17 @@
        (apply mapv concat     ) ))  ; shape=[n 9]
 
 (defn parse-entry
-  "Parse an account number entry from the machine."
+  "Parse an account number entry from the machine. Returns a vector of digit patterns"
   [entry]
   { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
            (apply = (into [\space] (last entry))) ] ; last line blank
     :post [ (= (shape %) [9 9] ) ] }
-  (parse-digits (take 3 entry)) )
+  (vec (parse-digits (take 3 entry))) )
 
 (def all-digpats    (parse-digits all-digit-lines))
 (def digkey-digpat  (zipmap all-digkeys all-digpats ))
 (def digpat-digkey  (zipmap all-digpats all-digkeys ))
+(def digkey-digit   (zipmap all-digkeys all-digits  ))
 
 (defn digpats-to-lines
   "Format a sequence of digit patterns into 3 separate lines"
@@ -90,11 +105,16 @@
   (digpats-to-lines 
     (digkeys-to-digpats digkeys)) )
 
+(defn digkeys-to-digits
+  "Covert a sequence of digit-key values into a string of digit characters"
+  [digkeys]
+  (str/join (mapv digkey-digit digkeys)) )
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
   []
   (log/msg "********************************************************************************")
+  (log/msg "Running tests...")
 
   (assert (= (shape all-digit-lines) [3 30] ))
   (assert (= (shape all-digpats)     [10 9] ))
@@ -131,24 +151,39 @@
                     "  ||_  _|  | _||_|  ||_| _|"
                     "                           " ]
         ent19-digpats (parse-entry entry-1-9) ]
+    (assert (=  (digpats-to-digkeys ent19-digpats)
+                [ :one :two :three :four :five :six :seven :eight :nine ] ))
     (log/trace)
     (log/trace "ent19-digpats")
     (log/trace (digpats-to-str ent19-digpats)) 
-    (assert (=  (digpats-to-digkeys ent19-digpats)
-                [ :one :two :three :four :five :six :seven :eight :nine ] ))
   )
 
-  (log/msg)
-  (log/msg "all-digpats conversion")
-  (log/msg (->> all-digpats
-                (digpats-to-digkeys )
-                (digkeys-to-lines   )
-                (lines-to-str       ) ))
+  (log/trace)
+  (log/trace "all-digpats conversion")
+  (log/trace (->> all-digpats
+                  (digpats-to-digkeys )
+                  (digkeys-to-lines   )
+                  (lines-to-str       ) ))
 )
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
 
+; awtawt todo:  write strict-shape fn
+
 (defn -main [& args]
   (log/msg "Main program")
+  (assert (= 0 (rem (count test-data) 4)) ) ; multiple of 4
+  (let [ 
+    entries (partition 4 test-data)
+    e1 (first entries)
+      _ (log/msg "e1:")
+      _ (log/msg (lines-to-str (take 3 e1)))
+    dps1 (parse-entry e1)
+      _ (log/msg "dps1:")
+      _ (log/msg (digpats-to-str dps1))
+    dig1 (digkeys-to-digits (digpats-to-digkeys dps1))
+      _ (log/msg (str "dig1 '" dig1 \' ))
+  ]
+  )
 )
 
