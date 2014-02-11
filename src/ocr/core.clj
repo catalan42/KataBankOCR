@@ -1,7 +1,6 @@
 (ns ocr.core
   (:require
     [clojure.string          :as str]
-    [clojure.set             :as set]
     [clojure.core.incubator  :as cci]
     [ocr.log                 :as log]
   ))
@@ -21,14 +20,14 @@
    (i.e. a ragged array like [ [1 2] [1 2 3]] would return a shape of [2 2])."
    [array-seq]
    (if-not (cci/seqable? array-seq)
-     []  ; (shape <scalar>) is []
+     []  ; (shape <scalar>) => []
      (let [curr-dim         (count array-seq)
            sub-shape        (shape (first array-seq)) ]
        (into [curr-dim] sub-shape)) ))
 
 (defn digpats-to-lines
   "Format a sequence of digit patterns into 3 separate lines"
-  [digpats]
+  [digpats] ; shape=[n 9]
   { :pre [ (= 9 (second (shape digpats))) ] }
   (->> digpats                   ; shape=[n 9]
        (mapv #(partition 3 %) )  ; shape=[n 3 3]
@@ -48,12 +47,6 @@
   (->> digpats
       (digpats-to-lines )
       (lines-to-str   ) ))
-
-(defn digpat-to-str
-  "Format a single digit pattern into a single 3-line string."
-  [digit]
-  { :pre [ (= 9 (count digit)) ] }
-  (digpats-to-str [digit]) )
 
 (defn parse-digits
   "Parse a set of 3 digit lines from the machine."
@@ -85,43 +78,35 @@
 
   (assert (= (shape digit-patterns) [3 30] ))
   (assert (= (shape all-digpats)    [10 9] ))
+  (log/msg "digit patterns 0-5:" )
+  (log/msg (digpats-to-str (parse-digits 
+        (mapv #(take 18 %) digit-patterns) )))
+
+  (log/msg "digit patterns 2-5:" )
+  (log/msg (digpats-to-str 
+    (parse-digits 
+      (mapv #(->> % (drop  6 ) (take 12 ) ) digit-patterns) )))
+
   (log/msg "all-digpats:" )
   (log/msg (digpats-to-str all-digpats) )
 
-  (log/msg ":three")
-  (log/msg (digpat-to-str (digkey-digpat :three)))
+  (log/msg "digpat ':three'")
+  (log/msg [ (digkey-digpat :three) ] )
 
-  (log/msg "digits 0-5:" )
+  (log/msg "digpats 123" )
   (log/msg 
     (digpats-to-str 
-      (parse-digits 
-        (mapv #(take 18 %) digit-patterns) )))
+      (mapv digkey-digpat [ :one :two :three ]) ))
 
   (let [
-        dig-1-9 (parse-digits 
-                  (mapv #(->> %
-                              (drop  3 )
-                              (take 27 ) ) digit-patterns ))
-          _ (log/msg (str "dig-1-9" ))
-          _ (log/msg (digpats-to-str dig-1-9 ))
-
-        dig-123 (mapv digkey-digpat [ :one :two :three ] )
-          _ (log/msg "dig-123" )
-          _ (log/msg (digpats-to-str dig-123))
-
-        key-1-9 (mapv digkey-digpat [ :one :two :three :four :five :six :seven :eight :nine ] )
+        entry-1-9 [ "    _  _     _  _  _  _  _ "
+                    "  | _| _||_||_ |_   ||_||_|"
+                    "  ||_  _|  | _||_|  ||_| _|" 
+                    "                           " ]
+        ent19-digpats (parse-entry entry-1-9)
           _ (log/msg )
-          _ (log/msg "key-1-9  shape=" (shape key-1-9) )
-          _ (log/msg (digpats-to-str key-1-9))
-
-        str-1-9 [ "    _  _     _  _  _  _  _ "
-                  "  | _| _||_||_ |_   ||_||_|"
-                  "  ||_  _|  | _||_|  ||_| _|" 
-                  "                           " ]
-        str19-digpats (parse-entry str-1-9)
-          _ (log/msg )
-          _ (log/msg "str19-digpats"  )
-          _ (log/msg (digpats-to-str str19-digpats))
+          _ (log/msg "ent19-digpats"  )
+          _ (log/msg (digpats-to-str ent19-digpats))
   ])
 )
 
