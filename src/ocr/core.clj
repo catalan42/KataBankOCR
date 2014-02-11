@@ -7,12 +7,15 @@
 
 (log/set-min-level log/EXTRA)
 
-(def ^:const digit-patterns [ " _     _  _     _  _  _  _  _ "
-                              "| |  | _| _||_||_ |_   ||_||_|"
-                              "|_|  ||_  _|  | _||_|  ||_| _|" ] )
+(def ^:const all-digit-lines 
+  "Master pattern defintion for machine output digit patterns (in order)"
+  [ " _     _  _     _  _  _  _  _ "
+    "| |  | _| _||_||_ |_   ||_||_|"
+    "|_|  ||_  _|  | _||_|  ||_| _|"] )
 
-(def ^:const digkeys [ :zero :one :two :three :four 
-                          :five :six :seven :eight :nine ] )
+(def ^:const all-digkeys 
+  "Master list of digit keywords (in order)"
+  [ :zero :one :two :three :four :five :six :seven :eight :nine ] )
 
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
@@ -49,9 +52,10 @@
   "Format a sequence of digit patterns into 3 separate lines"
   [digpats] ; shape=[n 9]
   { :pre [ (= 9 (second (shape digpats))) ] }
-  (->> digpats                      ; shape=[n 9]
-       (mapv #(partition 3 %) )     ; shape=[n 3 3]
-       (apply mapv concat     ) ))  ; shape=[3n 3]
+  (->> digpats                       ; shape=[n 9]
+       (mapv #(partition 3 %) )      ; shape=[n 3 3]
+       (apply mapv concat     )      ; shape=[3n 3]
+       (mapv str/join         )))    ; convert to string
 
 (defn lines-to-str
   "Format a sequence of 3 lines into a single 3-line string (including newlines)."
@@ -67,33 +71,51 @@
       (digpats-to-lines )
       (lines-to-str     ) ))
 
-(def all-digpats    (parse-digits digit-patterns))
-(def digkey-digpat  (zipmap digkeys all-digpats ))
+(def all-digpats    (parse-digits all-digit-lines))
+(def digkey-digpat  (zipmap all-digkeys all-digpats ))
+
+(defn digkey-to-lines
+  "Covert a sequence of digit-key values into a 3-line digit pattern."
+  [digkeys]
+  (digpats-to-lines 
+    (mapv digkey-digpat digkeys) ))
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
   []
+  (log/msg "********************************************************************************")
 
-  (assert (= (shape digit-patterns) [3 30] ))
-  (assert (= (shape all-digpats)    [10 9] ))
-  (log/msg "digit patterns 0-5:" )
-  (log/msg (digpats-to-str (parse-digits 
-        (mapv #(take 18 %) digit-patterns) )))
+  (assert (= (shape all-digit-lines) [3 30] ))
+  (assert (= (shape all-digpats)     [10 9] ))
+
+  (assert (=  (digpats-to-lines 
+                (parse-digits 
+                  (mapv #(take 18 %) all-digit-lines) ))
+              [ " _     _  _     _ "
+                "| |  | _| _||_||_ "
+                "|_|  ||_  _|  | _|" ] ))
 
   (log/msg "digit patterns 2-5:" )
   (log/msg  (digpats-to-str 
               (parse-digits 
-                (mapv #(->> % (drop  6 ) (take 12 ) ) digit-patterns) )))
+                (mapv #(->> % (drop  6 ) (take 12 ) ) all-digit-lines) )))
 
   (log/msg "all-digpats:" )
-  (log/msg (digpats-to-str all-digpats) )
+  (log/msg (lines-to-str (digpats-to-lines all-digpats) ))
+  (assert (=  (digpats-to-lines all-digpats)
+              [ " _     _  _     _  _  _  _  _ "
+                "| |  | _| _||_||_ |_   ||_||_|"
+                "|_|  ||_  _|  | _||_|  ||_| _|"] ))
 
   (log/msg "digpat ':three'")
   (log/msg [ (digkey-digpat :three) ] )
 
-  (log/msg "digpats 123" )
-  (log/msg  (digpats-to-str 
-              (mapv digkey-digpat [ :one :two :three ]) ))
+  (log/msg "digkeys 123" )
+  (log/msg  (lines-to-str 
+              (digkey-to-lines [ :one :two :three ]) ))
+
+  (log/msg  (lines-to-str 
+              (digkey-to-lines [ :one :two :three ]) ))
 
   (let [entry-1-9 [ "    _  _     _  _  _  _  _ "
                     "  | _| _||_||_ |_   ||_||_|"
