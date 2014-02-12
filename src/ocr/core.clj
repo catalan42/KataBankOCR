@@ -182,11 +182,11 @@
 (defn digkeys->checksum
   "Calculate the checksum from a sequence of digkeys."
   [digkeys]
-  (let [dot-prod  (reduce + 
-                    (mapv * checksum-coeffs 
-                            (mapv digkey->digit digkeys) ))
-        result (mod dot-prod 11)
-  ] result ))
+  (->> digkeys
+       (mapv digkey->digit )
+       (mapv * checksum-coeffs )
+       (reduce + ) 
+       (#(mod % 11) )))
 
 (defn -main [& args]
   (log/msg "Main program")
