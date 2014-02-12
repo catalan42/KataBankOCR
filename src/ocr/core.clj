@@ -116,8 +116,15 @@
 
     (let [entries (partition 4 data-lines)]
       (reduce conj []
-        (map (fn [entry    expected] { :entry entry  :expected expected } )
-                  entries  expected-strs )))))
+        (map #(hash-map :entry %1  :expected %2)
+                         entries    expected-strs )))))
+(comment
+
+  (mapv (fn [value] { :value value } ) [:a :b :c])
+  (mapv #(          { :value %1    } ) [:a :b :c])
+  (mapv #(hash-map    :value %1      ) [:a :b :c])
+
+)
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
