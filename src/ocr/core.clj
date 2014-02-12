@@ -5,7 +5,7 @@
     [ocr.log                 :as log]
   ))
 
-(log/set-min-level log/EXTRA)
+(log/set-min-level log/MESSAGE)
 
 (def ^:const all-digit-lines 
   "Master pattern defintion for machine output digit patterns (in order)"
@@ -21,16 +21,9 @@
   "Master list of digits (in order)"
   (vec (range 10)) )
 
-(def test-data   
-  "A collection of all test-data lines"
-  (str/split-lines (slurp "resources/test-data.txt")) )
+(def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
 
-(def test-result   
-  "A collection of all correct test-result lines"
-  (->> (slurp "resources/test-result.txt")
-       (str/split-lines )
-       (map str/trim    ) ))
-
+; awtawt todo:  write shape-strict fn
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
    would return [4 3]). Only the first element of each seq is evaluated 
@@ -105,10 +98,26 @@
   (digpats-to-lines 
     (digkeys-to-digpats digkeys)) )
 
-(defn digkeys-to-digits
+(defn digkeys-to-digitstr
   "Covert a sequence of digit-key values into a string of digit characters"
   [digkeys]
   (str/join (mapv digkey-digit digkeys)) )
+
+(def test-data   
+  "A collection of all test data-lines and expected results"
+  (let [data-lines      (vec (str/split-lines 
+                               (slurp "resources/test-data.txt")) )
+        num-data-lines  (/ (count data-lines)  4) ; 4 lines per entry
+        expected-strs   (vec (->> (slurp "resources/test-result.txt")
+                                  (str/split-lines )
+                                  (map str/trim    ) )) ]
+    (assert (=  num-data-lines (int num-data-lines) )) ; no partial entries
+    (assert (=  num-data-lines (count expected-strs))) ; equal numbers
+
+    (let [entries (partition 4 data-lines)]
+      (reduce conj []
+        (map (fn [entry    expected] { :entry entry  :expected expected } )
+                  entries  expected-strs )))))
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
@@ -168,22 +177,25 @@
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code loaded
 
-; awtawt todo:  write strict-shape fn
+; checksum calculation:
+; (d1+2*d2+3*d3 +..+9*d9) mod 11 = 0
+
+(defn calc-checksum
+  "Calculate the checksum from a sequence of digkeys."
+  [digkeys]
+  (mapv digkey-digit digkeys)
+)
 
 (defn -main [& args]
   (log/msg "Main program")
-  (assert (= 0 (rem (count test-data) 4)) ) ; multiple of 4
-  (let [ 
-    entries (partition 4 test-data)
-    e1 (first entries)
-      _ (log/msg "e1:")
-      _ (log/msg (lines-to-str (take 3 e1)))
-    dps1 (parse-entry e1)
-      _ (log/msg "dps1:")
-      _ (log/msg (digpats-to-str dps1))
-    dig1 (digkeys-to-digits (digpats-to-digkeys dps1))
-      _ (log/msg (str "dig1 '" dig1 \' ))
-  ]
-  )
-)
+  (log/msg "(count test-data)" (count test-data) )
+  (doseq [sample test-data ]
+    (let [digpats     (parse-entry (:entry sample))
+          digit-str   (->> digpats digpats-to-digkeys digkeys-to-digitstr) ]
+      (log/msg "\n\n")
+      (log/msg "digpats:")
+      (log/msg (digpats-to-str digpats))
 
+      (log/msg "digit-str " digit-str )
+      (log/msg "expected  " (:expected sample) )
+    ) ))
