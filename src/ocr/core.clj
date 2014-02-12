@@ -21,8 +21,6 @@
   "Master list of digits (in order)"
   (vec (range 10)) )
 
-(def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
-
 ; awtawt todo:  write shape-strict fn
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
@@ -60,10 +58,10 @@
     :post [ (= (shape %) [9 9] ) ] }
   (vec (parse-digits (take 3 entry))) )
 
-(def all-digpats    (parse-digits all-digit-lines))
-(def digkey-digpat  (zipmap all-digkeys all-digpats ))
-(def digpat-digkey  (zipmap all-digpats all-digkeys ))
-(def digkey-digit   (zipmap all-digkeys all-digits  ))
+(def all-digpats     (parse-digits all-digit-lines))
+(def digkey->digpat  (zipmap all-digkeys all-digpats ))
+(def digpat->digkey  (zipmap all-digpats all-digkeys ))
+(def digkey->digit   (zipmap all-digkeys all-digits  ))
 
 (defn digpats-to-lines
   "Format a sequence of digit patterns into 3 separate lines"
@@ -85,12 +83,12 @@
 (defn digpats-to-digkeys
   "Covert a sequence of digit-pattern values into a vector of digit-key values"
   [digpats]
-  (mapv digpat-digkey digpats) )
+  (mapv digpat->digkey digpats) )
 
 (defn digkeys-to-digpats
   "Covert a sequence of digit-key values into a vector of digit-pattern values"
   [digkeys]
-  (mapv digkey-digpat digkeys) )
+  (mapv digkey->digpat digkeys) )
 
 (defn digkeys-to-lines
   "Covert a sequence of digit-key values into a 3-line digit pattern."
@@ -101,7 +99,7 @@
 (defn digkeys-to-digitstr
   "Covert a sequence of digit-key values into a string of digit characters"
   [digkeys]
-  (str/join (mapv digkey-digit digkeys)) )
+  (str/join (mapv digkey->digit digkeys)) )
 
 (def test-data   
   "A collection of all test data-lines and expected results"
@@ -118,13 +116,6 @@
       (reduce conj []
         (map #(hash-map :entry %1  :expected %2)
                          entries    expected-strs )))))
-(comment
-
-  (mapv (fn [value] { :value value } ) [:a :b :c])
-  (mapv #(          { :value %1    } ) [:a :b :c])
-  (mapv #(hash-map    :value %1      ) [:a :b :c])
-
-)
 
 (defn do-tests 
   "Documents (& tests) regex stuff."
@@ -134,7 +125,7 @@
 
   (assert (= (shape all-digit-lines) [3 30] ))
   (assert (= (shape all-digpats)     [10 9] ))
-  (assert (= (str/join (digkey-digpat :nine) ) " _ |_| _|" ))
+  (assert (= (str/join (digkey->digpat :nine) ) " _ |_| _|" ))
 
   (assert (=  (digpats-to-lines 
                 (parse-digits 
@@ -187,22 +178,31 @@
 ; checksum calculation:
 ; (d1+2*d2+3*d3 +..+9*d9) mod 11 = 0
 
-(defn calc-checksum
+(def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
+(defn digkeys->checksum
   "Calculate the checksum from a sequence of digkeys."
   [digkeys]
-  (mapv digkey-digit digkeys)
-)
+  (let [dot-prod  (reduce + 
+                    (mapv * checksum-coeffs 
+                            (mapv digkey->digit digkeys) ))
+        result (mod dot-prod 11)
+  ] result ))
 
 (defn -main [& args]
   (log/msg "Main program")
   (log/msg "(count test-data)" (count test-data) )
+  (log/msg "digkey->digit" digkey->digit )
+  (log/msg "checksum-coeffs" checksum-coeffs )
   (doseq [sample test-data ]
     (let [digpats     (parse-entry (:entry sample))
-          digit-str   (->> digpats digpats-to-digkeys digkeys-to-digitstr) ]
-      (log/msg "\n\n")
-      (log/msg "digpats:")
-      (log/msg (digpats-to-str digpats))
-
-      (log/msg "digit-str " digit-str )
-      (log/msg "expected  " (:expected sample) )
+          digkeys     (->> digpats digpats-to-digkeys)
+          digit-str   (->> digkeys digkeys-to-digitstr) 
+            _ (log/msg "\n\n")
+            _ (log/msg "digpats:")
+            _ (log/msg (digpats-to-str digpats))
+            _ (log/msg "digkeys:" digkeys)
+            _ (log/msg "expected  " (:expected sample) )
+          checksum    (digkeys->checksum digkeys) ]
+      (log/msg "digit-str " digit-str "  checksum:" checksum )
     ) ))
+
