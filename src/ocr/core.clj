@@ -1,6 +1,7 @@
 (ns ocr.core
   (:require
     [clojure.string          :as str]
+    [clojure.set             :as set]
     [clojure.core.incubator  :as cci]
     [ocr.log                 :as log]
   ))
@@ -20,6 +21,21 @@
 (def ^:const all-digits
   "Master list of digits (in order)"
   (vec (range 10)) )
+
+(defn truthy?
+  "Returns false if the argument is either false or nil, else true."
+  [arg]
+  (if arg true false) )
+
+(defn all-truthy?
+  "Returns true if every element in a collection is truthy, else false."
+  [coll]
+  (every? truthy? coll))
+
+(defn any?
+  "Like clojure.core/some, but returns either true or false."
+  [pred coll]
+  (if (some pred coll) true false) )
 
 ; awtawt todo:  write shape-strict fn
 (defn shape
@@ -62,6 +78,17 @@
 (def digkey->digpat  (zipmap all-digkeys all-digpats ))
 (def digpat->digkey  (zipmap all-digpats all-digkeys ))
 (def digkey->digit   (conj (zipmap all-digkeys all-digits ) { nil \? } ))
+
+(def pattern-dist
+  "Returns the 'distance' between two digit-patterns, calculated as the number of
+  elements where they differ."
+  (reduce conj {}
+    (for [pat1 all-digpats]
+      (reduce conj {}
+        (for [pat2 all-digpats]
+          (let [deltas      (map #(not= %1 %2) pat1 pat2)
+                num-deltas  (count (filter truthy? deltas)) ]
+            { [pat1 pat2] num-deltas } ))))))
 
 (defn digpats->lines
   "Format a sequence of digit patterns into 3 separate lines"
@@ -118,6 +145,14 @@
          (#(mod % 11) )
          (= 0 ) )))
 
+(defn digpats-valid?
+  "Returns true if digit-patterns are a valid account number, else false."
+  [digpats]
+  (let [digkeys         (->> digpats digpats->digkeys)
+        checksum-err    (checksum-valid? digkeys) 
+        illegible       (any? nil? digkeys) ]
+    (not-any? [illegible checksum-err]) ))
+
 (def test-data   
   "A collection of all test data-lines and expected results"
   (let [data-lines      (vec (str/split-lines 
@@ -138,6 +173,23 @@
   []
   (log/msg "********************************************************************************")
   (log/msg "Running tests...")
+
+  (assert      (truthy?  true   ))
+  (assert      (truthy?  :a     ))
+  (assert      (truthy?  1      ))
+  (assert      (truthy?  0      ))
+  (assert (not (truthy?  false )))
+  (assert (not (truthy?  nil   )))
+
+  (assert         (all-truthy?   [0 1 :a       "hello" true]  ))
+  (assert (not    (all-truthy?   [0 1 :a nil   "hello" true] )))
+  (assert (not    (all-truthy?   [0 1 :a false "hello" true] )))
+  (assert      (every? truthy?   [0 1 :a       "hello" true]  ))
+  (assert (not (every? truthy?   [0 1 :a nil   "hello" true] )))
+  (assert (not (every? truthy?   [0 1 :a false "hello" true] )))
+  (assert      (every? identity  [0 1 :a       "hello" true]  ))
+  (assert (not (every? identity  [0 1 :a nil   "hello" true] )))
+  (assert (not (every? identity  [0 1 :a false "hello" true] )))
 
   (assert (= (shape all-digit-lines) [3 30] ))
   (assert (= (shape all-digpats)     [10 9] ))
@@ -187,24 +239,35 @@
                   (digpats->digkeys )
                   (digkeys->lines   )
                   (lines->str       ) ))
+
+  (log/msg "digkey->digpat" )
+  (doseq [digkey all-digkeys]
+    (log/msg (format "%-10s" digkey) (digkey->digpat digkey)) )
 )
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
 
 (defn -main [& args]
+  (if false (do
+
   (log/msg "Main program")
   (log/msg "(count test-data)" (count test-data) )
   (doseq [sample test-data ]
-    (let [digpats     (parse-entry (:entry sample))
-          digkeys     (->> digpats digpats->digkeys)
-          illegible   (some nil? digkeys)
-          digit-str   (->> digkeys digkeys->digitstr) 
-          ck-valid    (checksum-valid? digkeys) ]
+    (let [digpats         (parse-entry (:entry sample))
+          digkeys         (->> digpats digpats->digkeys)
+          checksum-err    (checksum-valid? digkeys) 
+          illegible       (any? nil? digkeys)
+          num-ill         (count (filter nil? digkeys))
+          digit-str       (->> digkeys digkeys->digitstr) 
+          status-str      (if illegible "ILL" 
+                            (if checksum-err "ERR" "   ") )
+    ]
       (log/msg)
       (log/msg "digpats:")
       (log/msg (digpats->str digpats))
       (log/msg "digkeys:   " digkeys)
       (log/msg "expected:  " (:expected sample) )
-      (log/msg "digit-str: " digit-str "  illegible:" illegible "  ck-valid:" ck-valid )
-    ) ))
+      (log/msg "digit-str: " digit-str status-str  (str " (illegible:" illegible 
+        "  num-ill:" num-ill "  checksum-err:" checksum-err ")" ) )
+    ) ))))
 
