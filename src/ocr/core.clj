@@ -254,8 +254,6 @@
         num-deltas ))))))
 
 (defn -main [& args]
-  (if true (do
-
   (log/msg "Main program")
   (log/msg "(count test-data)" (count test-data) )
   (doseq [sample test-data ]
@@ -290,4 +288,4 @@
         (log/msg "swap-list" swap-list )
       ) 
 
-    ) ))))
+    ) ))
