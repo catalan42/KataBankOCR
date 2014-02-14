@@ -23,19 +23,28 @@
   (vec (range 10)) )
 
 (defn truthy?
-  "Returns false if the argument is either false or nil, else true."
+  "Returns true if argument is logical true (neither nil nor false);
+  othersise returns false."
   [arg]
   (if arg true false) )
 
-(defn all-truthy?
-  "Returns true if every element in a collection is truthy, else false."
-  [coll]
-  (every? truthy? coll))
-
 (defn any?
-  "Like clojure.core/some, but returns either true or false."
+  "Returns true if any (pred x) in coll is logical true, else false.
+  Like clojure.core/some, but returns only true or false."
   [pred coll]
   (if (some pred coll) true false) )
+
+; Generic vectors (tuples) for use as ad-hoc containers. Since these are distinct types
+; different from generic Clojure vectors or maps, they are easier to use with conj,
+; flatten, etc.
+(defrecord Pair   [a b    ]) ; generic 2-vec
+(defrecord Triple [a b c  ]) ; generic 3-vec
+(defrecord Quad   [a b c d]) ; generic 4-vec
+
+(defn conjv 
+  "Appends to a collection, always returning a vector."
+  [coll item]
+  (conj (vec coll) item) )
 
 ; awtawt todo:  write shape-strict fn
 (defn shape
@@ -79,17 +88,6 @@
 (def digpat->digkey  (zipmap all-digpats all-digkeys ))
 (def digkey->digit   (conj (zipmap all-digkeys all-digits ) { nil \? } ))
 
-(def pattern-dist
-  "Returns the 'distance' between two digit-patterns, calculated as the number of
-  elements where they differ."
-  (reduce conj {}
-    (for [pat1 all-digpats]
-      (reduce conj {}
-        (for [pat2 all-digpats]
-          (let [deltas      (map #(not= %1 %2) pat1 pat2)
-                num-deltas  (count (filter truthy? deltas)) ]
-            { [pat1 pat2] num-deltas } ))))))
-
 (defn digpats->lines
   "Format a sequence of digit patterns into 3 separate lines"
   [digpats] ; shape=[n 9]
@@ -108,7 +106,8 @@
       (lines->str     ) ))
 
 (defn digpats->digkeys
-  "Covert a sequence of digit-pattern values into a vector of digit-key values"
+  "Covert a sequence of digit-pattern values into a vector of digit-key values. Output
+  vector will contain nil for invalid digit-patterns."
   [digpats]
   (mapv digpat->digkey digpats) )
 
@@ -131,19 +130,20 @@
 (defn valid-digkeys?
   "Returns true if a sequence of digit keys is valid, else nil."
   [digkeys]
-  (not-any? nil? digkeys) )
+  (every? truthy? digkeys) )
 
 (def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
 (defn checksum-valid?
-  "Returns true if a sequence of digkeys has a valid checksum."
+  "Returns true if a sequence of digkeys has a valid checksum, else false."
   [digkeys]
-  (when (valid-digkeys? digkeys)
+  (if (valid-digkeys? digkeys)
     (->> digkeys
          (mapv digkey->digit )
          (mapv * checksum-coeffs )
          (reduce + ) 
          (#(mod % 11) )
-         (= 0 ) )))
+         (= 0 ) )
+    false ))
 
 (defn digpats-valid?
   "Returns true if digit-patterns are a valid account number, else false."
@@ -176,20 +176,15 @@
 
   (assert      (truthy?  true   ))
   (assert      (truthy?  :a     ))
+  (assert      (truthy?  "abc"  ))
   (assert      (truthy?  1      ))
-  (assert      (truthy?  0      ))
+  (assert      (truthy?  0      ))  ; zero is not falsey!
   (assert (not (truthy?  false )))
   (assert (not (truthy?  nil   )))
 
-  (assert         (all-truthy?   [0 1 :a       "hello" true]  ))
-  (assert (not    (all-truthy?   [0 1 :a nil   "hello" true] )))
-  (assert (not    (all-truthy?   [0 1 :a false "hello" true] )))
-  (assert      (every? truthy?   [0 1 :a       "hello" true]  ))
+  (assert      (every? truthy?   [0 1 :a [1 2] "hello" true]  ))
   (assert (not (every? truthy?   [0 1 :a nil   "hello" true] )))
   (assert (not (every? truthy?   [0 1 :a false "hello" true] )))
-  (assert      (every? identity  [0 1 :a       "hello" true]  ))
-  (assert (not (every? identity  [0 1 :a nil   "hello" true] )))
-  (assert (not (every? identity  [0 1 :a false "hello" true] )))
 
   (assert (= (shape all-digit-lines) [3 30] ))
   (assert (= (shape all-digpats)     [10 9] ))
@@ -247,27 +242,51 @@
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
 
+(defn calc-pattern-dist
+  "Returns the 'distance' between a sample digit-pattern and each the canonical digit
+  pattern, calculated as the number of elements where they differ."
+  [sample-digpats]
+  (vec (for [sample-pat sample-digpats]
+    (vec (for [canon-pat all-digpats]
+      (let [deltas      (map #(not= %1 %2) sample-pat canon-pat)
+            num-deltas  (count (filter truthy? deltas)) ]
+        num-deltas ))))))
+
 (defn -main [& args]
-  (if false (do
+  (if true (do
 
   (log/msg "Main program")
   (log/msg "(count test-data)" (count test-data) )
   (doseq [sample test-data ]
-    (let [digpats         (parse-entry (:entry sample))
-          digkeys         (->> digpats digpats->digkeys)
-          checksum-err    (checksum-valid? digkeys) 
-          illegible       (any? nil? digkeys)
-          num-ill         (count (filter nil? digkeys))
-          digit-str       (->> digkeys digkeys->digitstr) 
-          status-str      (if illegible "ILL" 
-                            (if checksum-err "ERR" "   ") )
+    (let [sample-digpats    (parse-entry (:entry sample))
+          digkeys           (->> sample-digpats digpats->digkeys)
+          checksum-err      (checksum-valid? digkeys) 
+          illegible         (any? nil? digkeys)
+          num-ill           (count (filter nil? digkeys))
+          digit-str         (->> digkeys digkeys->digitstr) 
+          status-str        (if illegible "ILL" 
+                              (if checksum-err "ERR" "   ") )
     ]
       (log/msg)
-      (log/msg "digpats:")
-      (log/msg (digpats->str digpats))
+      (log/msg "sample-digpats:")
+      (log/msg (digpats->str sample-digpats))
       (log/msg "digkeys:   " digkeys)
       (log/msg "expected:  " (:expected sample) )
       (log/msg "digit-str: " digit-str status-str  (str " (illegible:" illegible 
         "  num-ill:" num-ill "  checksum-err:" checksum-err ")" ) )
-    ) ))))
+      (let [sample-dist (calc-pattern-dist sample-digpats) 
+            swap-list   (filter truthy?
+                          (flatten
+                            (for [iSamp (range (count sample-digpats)) ]
+                              (for [iCanon (range (count all-digpats)) ]
+                                (let [dist (get-in sample-dist [iSamp iCanon]) ]
+                                  (when (= 1 dist) 
+                                    (Triple. iSamp iCanon dist )
+                                  ) )))))
+      ]
+        (log/dbg "sample-dist, shape"    (shape sample-dist))
+        (log/dbg sample-dist)
+        (log/msg "swap-list" swap-list )
+      ) 
 
+    ) ))))
