@@ -134,7 +134,8 @@
 
 (def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
 (defn checksum-valid?
-  "Returns true if a sequence of digkeys has a valid checksum, else false."
+  "Returns true if a sequence of digkeys has a valid checksum, else false. Will also
+  return false if some digit-keys are nil, indicating illegible input lines."
   [digkeys]
   (if (valid-digkeys? digkeys)
     (->> digkeys
@@ -148,9 +149,9 @@
 (defn digpats-valid?
   "Returns true if digit-patterns are a valid account number, else false."
   [digpats]
-  (let [digkeys (->> digpats digpats->digkeys)]
-    (and (valid-digkeys?   digkeys) 
-         (checksum-valid?  digkeys) )))
+  (->> digpats 
+       digpats->digkeys  
+       checksum-valid?   ))
 
 (def test-data   
   "A collection of all test data-lines and expected results"
