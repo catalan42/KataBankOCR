@@ -37,3 +37,9 @@
   [level]
   (def logging-min-level level) )
 
+(defn spy 
+  "Prints label and arg to logging stream, then returns arg unaltered.  Useful for spying
+  on contents of threading stream, etc."
+  [label arg]
+  (do (msg label arg) arg) )
+

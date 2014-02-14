@@ -148,10 +148,9 @@
 (defn digpats-valid?
   "Returns true if digit-patterns are a valid account number, else false."
   [digpats]
-  (let [digkeys         (->> digpats digpats->digkeys)
-        checksum-err    (checksum-valid? digkeys) 
-        illegible       (any? nil? digkeys) ]
-    (not-any? [illegible checksum-err]) ))
+  (let [digkeys (->> digpats digpats->digkeys)]
+    (and (valid-digkeys?   digkeys) 
+         (checksum-valid?  digkeys) )))
 
 (def test-data   
   "A collection of all test data-lines and expected results"
@@ -260,12 +259,12 @@
   (doseq [sample test-data ]
     (let [sample-digpats    (parse-entry (:entry sample))
           digkeys           (->> sample-digpats digpats->digkeys)
-          checksum-err      (checksum-valid? digkeys) 
+          ck-error          (not (checksum-valid? digkeys))
           illegible         (not (valid-digkeys? digkeys))
           num-ill           (count (filter nil? digkeys))
           digit-str         (->> digkeys digkeys->digitstr) 
           status-str        (if illegible "ILL" 
-                              (if checksum-err "ERR" "   ") )
+                              (if ck-error "ERR" "   " ) )
     ]
       (log/msg)
       (log/msg "sample-digpats:")
@@ -273,7 +272,7 @@
       (log/msg "digkeys:   " digkeys)
       (log/msg "expected:  " (:expected sample) )
       (log/msg "digit-str: " digit-str status-str  (str " (illegible:" illegible 
-        "  num-ill:" num-ill "  checksum-err:" checksum-err ")" ) )
+        "  num-ill:" num-ill "  ck-error:" ck-error ")" ) )
       (let [sample-dist (calc-pattern-dist sample-digpats) 
             swap-list   (filter truthy?
                           (flatten
