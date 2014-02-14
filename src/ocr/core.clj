@@ -40,15 +40,6 @@
   (filter truthy? 
     (flatten coll) ))
 
-; Generic vectors (tuples) for use as ad-hoc containers. Since these are distinct types
-; different from generic Clojure vectors or maps, they are easier to use with conj,
-; flatten, etc.
-(defrecord Wrap   [val    ]) ; generic wrapper
-(defrecord Single [a      ]) ; generic 1-vec
-(defrecord Pair   [a b    ]) ; generic 2-vec
-(defrecord Triple [a b c  ]) ; generic 3-vec
-(defrecord Quad   [a b c d]) ; generic 4-vec
-
 (defn conjv 
   "Appends to a collection, always returning a vector."
   [coll item]
@@ -287,17 +278,17 @@
                             (for [iCanon (range (count all-digpats)) ]
                               (let [dist (get-in sample-dist [iSamp iCanon]) ]
                                 (when (= 1 dist) 
-                                  (Triple. iSamp iCanon dist )
+                                  {:iSamp iSamp :iCanon iCanon :dist dist}
                                 ) ))))
             poss-digkeys  
               (collect-truthy
                 (for [swapper swap-list]
                   (let [mod-digpats (assoc sample-digpats 
-                                       (:a swapper) ; idx of digpat to replace
-                                       (all-digpats (:b swapper)) ) ; digpat to use
+                                       (:iSamp swapper) ; idx of digpat to replace
+                                       (all-digpats (:iCanon swapper)) ) ; digpat to use
                         mod-digkeys (->> mod-digpats digpats->digkeys)
                   ] (when (entry-valid? mod-digkeys)
-                      (Wrap. mod-digkeys) ))))
+                      {:val mod-digkeys} ))))
             poss-digstrs (mapv #(digkeys->digitstr (:val %) ) poss-digkeys)
       ]
         (log/msg "poss-digstrs" poss-digstrs)
