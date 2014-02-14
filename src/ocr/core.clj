@@ -107,7 +107,7 @@
 
 (defn digpats->digkeys
   "Covert a sequence of digit-pattern values into a vector of digit-key values. Output
-  vector will contain nil for invalid digit-patterns."
+  vector will contain nil for unrecognized (i.e. illegible) digit-patterns."
   [digpats]
   (mapv digpat->digkey digpats) )
 
@@ -128,14 +128,14 @@
   (str/join (mapv digkey->digit digkeys)) )
 
 (defn valid-digkeys?
-  "Returns true if a sequence of digit keys is valid, else nil."
+  "Returns true if all digit-keys are legible (i.e. not nil), else false."
   [digkeys]
   (every? truthy? digkeys) )
 
 (def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
-(defn checksum-valid?
-  "Returns true if a sequence of digkeys has a valid checksum, else false. Will also
-  return false if some digit-keys are nil, indicating illegible input lines."
+(defn entry-valid?
+  "Returns true if all digit-keys for an entry are legible, and a valid checksum is
+  computed; otherwise, returns false.  "
   [digkeys]
   (if (valid-digkeys? digkeys)
     (->> digkeys
@@ -147,11 +147,12 @@
     false ))
 
 (defn digpats-valid?
-  "Returns true if digit-patterns are a valid account number, else false."
+  "Returns true if all digit-patterns for an entry are legible, and a valid checksum is
+  computed; otherwise, returns false.  "
   [digpats]
   (->> digpats 
        digpats->digkeys  
-       checksum-valid?   ))
+       entry-valid? ))
 
 (def test-data   
   "A collection of all test data-lines and expected results"
@@ -260,12 +261,12 @@
   (doseq [sample test-data ]
     (let [sample-digpats    (parse-entry (:entry sample))
           digkeys           (->> sample-digpats digpats->digkeys)
-          ck-error          (not (checksum-valid? digkeys))
+          ent-invalid       (not (entry-valid? digkeys))
           illegible         (not (valid-digkeys? digkeys))
           num-ill           (count (filter nil? digkeys))
           digit-str         (->> digkeys digkeys->digitstr) 
           status-str        (if illegible "ILL" 
-                              (if ck-error "ERR" "   " ) )
+                              (if ent-invalid "ERR" "   " ) )
     ]
       (log/msg)
       (log/msg "sample-digpats:")
@@ -273,7 +274,7 @@
       (log/msg "digkeys:   " digkeys)
       (log/msg "expected:  " (:expected sample) )
       (log/msg "digit-str: " digit-str status-str  (str " (illegible:" illegible 
-        "  num-ill:" num-ill "  ck-error:" ck-error ")" ) )
+        "  num-ill:" num-ill "  ent-invalid:" ent-invalid ")" ) )
       (let [sample-dist (calc-pattern-dist sample-digpats) 
             swap-list   (filter truthy?
                           (flatten
