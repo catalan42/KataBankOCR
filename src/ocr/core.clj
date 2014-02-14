@@ -282,23 +282,22 @@
       (log/msg "digit-str: " digit-str status-str  (str " (illegible:" illegible 
         "  num-ill:" num-ill "  ent-invalid:" ent-invalid ")" ) )
       (let [sample-dist (calc-pattern-dist sample-digpats) 
-            swap-list   (filter truthy?
-                          (flatten
-                            (for [iSamp (range (count sample-digpats)) ]
-                              (for [iCanon (range (count all-digpats)) ]
-                                (let [dist (get-in sample-dist [iSamp iCanon]) ]
-                                  (when (= 1 dist) 
-                                    (Triple. iSamp iCanon dist )
-                                  ) )))))
+            swap-list   (collect-truthy  
+                          (for [iSamp (range (count sample-digpats)) ]
+                            (for [iCanon (range (count all-digpats)) ]
+                              (let [dist (get-in sample-dist [iSamp iCanon]) ]
+                                (when (= 1 dist) 
+                                  (Triple. iSamp iCanon dist )
+                                ) ))))
             poss-digkeys  
-              (filter truthy? (flatten
+              (collect-truthy
                 (for [swapper swap-list]
                   (let [mod-digpats (assoc sample-digpats 
                                        (:a swapper) ; idx of digpat to replace
                                        (all-digpats (:b swapper)) ) ; digpat to use
                         mod-digkeys (->> mod-digpats digpats->digkeys)
                   ] (when (entry-valid? mod-digkeys)
-                      (Wrap. mod-digkeys) )))))
+                      (Wrap. mod-digkeys) ))))
             poss-digstrs (mapv #(digkeys->digitstr (:val %) ) poss-digkeys)
       ]
         (log/msg "poss-digstrs" poss-digstrs)
