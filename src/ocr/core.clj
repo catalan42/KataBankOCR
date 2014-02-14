@@ -261,7 +261,7 @@
     (let [sample-digpats    (parse-entry (:entry sample))
           digkeys           (->> sample-digpats digpats->digkeys)
           checksum-err      (checksum-valid? digkeys) 
-          illegible         (any? nil? digkeys)
+          illegible         (not (valid-digkeys? digkeys))
           num-ill           (count (filter nil? digkeys))
           digit-str         (->> digkeys digkeys->digitstr) 
           status-str        (if illegible "ILL" 
