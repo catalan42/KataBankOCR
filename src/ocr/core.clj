@@ -29,10 +29,10 @@
   (if arg true false) )
 
 (defn any?
-  "Returns true if any (pred x) in coll is logical true, else false.
+  "Returns true if (pred x) is logical true for any x in coll, else false.
   Like clojure.core/some, but returns only true or false."
   [pred coll]
-  (if (some pred coll) true false) )
+  (truthy? (some pred coll)) )
 
 (defn collect-truthy
   "Walks a collection and collects all truthy values into a vector."
@@ -171,24 +171,21 @@
 (defn do-tests 
   "Documents (& tests) regex stuff."
   []
-  (log/msg "********************************************************************************")
-  (log/msg "Running tests...")
+  (log/dbg "********************************************************************************")
+  (log/dbg "Running tests...")
 
   (assert      (truthy?  true   ))
   (assert      (truthy?  :a     ))
-  (assert      (truthy?  "abc"  ))
-  (assert      (truthy?  1      ))
   (assert      (truthy?  0      ))  ; zero is not falsey!
   (assert (not (truthy?  false )))
   (assert (not (truthy?  nil   )))
 
-  (assert      (every? truthy?   [0 1 :a [1 2] "hello" true]  ))
-  (assert (not (every? truthy?   [0 1 :a nil   "hello" true] )))
-  (assert (not (every? truthy?   [0 1 :a false "hello" true] )))
-
-  (assert (= (shape all-digit-lines) [3 30] ))
-  (assert (= (shape all-digpats)     [10 9] ))
-  (assert (= (str/join (digkey->digpat :nine) ) " _ |_| _|" ))
+  (let [x23 [ [1 2 3]
+              [4 5 6] ]
+  ] (assert (= (shape x23) [2 3])) )
+  (assert (= (shape all-digit-lines) [3 30] )) ; canonical lines
+  (assert (= (shape all-digpats)     [10 9] )) ; canonical digit-patterns
+  (assert (= (str/join (digkey->digpat :nine) ) " _ |_| _|" )) ; sample digit-pattern
 
   (assert (=  (digpats->lines 
                 (parse-digits 
@@ -197,14 +194,14 @@
                 "| |  | _| _||_||_ "
                 "|_|  ||_  _|  | _|" ] ))
 
-  (log/trace "digit patterns 2-5:" )
-  (log/trace  (digpats->str 
-                (parse-digits 
-                  (mapv #(->> % (drop  6 ) (take 12 ) ) all-digit-lines) )))
+  (log/dbg "digit patterns 2-5:" )
+  (log/dbg  (digpats->str 
+              (parse-digits 
+                (mapv #(->> % (drop  6 ) (take 12 ) ) all-digit-lines) )))
 
-  (log/trace "digkeys 123" )
-  (log/trace  (lines->str 
-                (digkeys->lines [ :one :two :three ]) ))
+  (log/dbg "digkeys 123" )
+  (log/dbg  (lines->str 
+              (digkeys->lines [ :one :two :three ]) ))
 
   (assert (= (digpats->digkeys all-digpats) all-digkeys ))
   (assert (= (digkeys->digpats all-digkeys) all-digpats ))
@@ -223,21 +220,21 @@
         ent19-digpats (parse-entry entry-1-9) ]
     (assert (=  (digpats->digkeys ent19-digpats)
                 [ :one :two :three :four :five :six :seven :eight :nine ] ))
-    (log/trace)
-    (log/trace "ent19-digpats")
-    (log/trace (digpats->str ent19-digpats)) 
+    (log/dbg)
+    (log/dbg "ent19-digpats")
+    (log/dbg (digpats->str ent19-digpats)) 
   )
 
-  (log/trace)
-  (log/trace "all-digpats conversion")
-  (log/trace (->> all-digpats
-                  (digpats->digkeys )
-                  (digkeys->lines   )
-                  (lines->str       ) ))
+  (log/dbg)
+  (log/dbg "all-digpats conversion")
+  (log/dbg (->> all-digpats
+                (digpats->digkeys )
+                (digkeys->lines   )
+                (lines->str       ) ))
 
-  (log/msg "digkey->digpat" )
+  (log/dbg "digkey->digpat" )
   (doseq [digkey all-digkeys]
-    (log/msg (format "%-10s" digkey) (digkey->digpat digkey)) )
+    (log/dbg (format "%-10s" digkey) (digkey->digpat digkey)) )
 )
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
@@ -253,8 +250,6 @@
         num-deltas ))))))
 
 (defn -main [& args]
-  (log/msg "Main program")
-  (log/msg "(count test-data)" (count test-data) )
   (doseq [sample test-data ]
     (let [sample-digpats    (parse-entry (:entry sample))
           digkeys           (->> sample-digpats digpats->digkeys)
@@ -284,24 +279,22 @@
           poss-digstrs (mapv #(digkeys->digitstr (:val %) ) poss-digkeys)
       ]
       (log/msg)
-      (log/msg "sample-digpats:")
       (log/msg (digpats->str sample-digpats))
-      (log/msg "expected:    " (:expected sample) )
+      (log/ext "exp:" (:expected sample) )
       (if-not orig-invalid
-        (log/msg "orig-digstr: " orig-digstr orig-statstr )
+        (log/msg "=>  " orig-digstr orig-statstr )
       ;else
-        (if (= 1 (count poss-digstrs))
-          (let [corr-digstr (first poss-digstrs) ]
-            (log/msg "corr-digstr: " corr-digstr ) )
-          ;else
-          (do 
-            (let [amb-digstr (->>  poss-digstrs
-                                   (mapv #(format "'%s'" %) )
-                                   (interpose ", "  )
-                                   (apply str       )
-                                   (format "[%s]"   )  
-                             )]
-              (log/msg "amb-digstr:  " orig-digstr "AMB" amb-digstr ) ))
-        ) 
-      )
-    ) ))
+        (cond (= 1 (count poss-digstrs))
+                (let [corr-digstr (first poss-digstrs) ]
+                  (log/msg "=>  " corr-digstr "FIX") )
+              (< 1 (count poss-digstrs))
+                (let [amb-digstr (->>  poss-digstrs
+                                       (mapv #(format "'%s'" %) )
+                                       (interpose ", "  )
+                                       (apply str       )
+                                       (format "[%s]"   )  
+                                 )]
+                  (log/msg "=>  " orig-digstr "AMB" amb-digstr ) )
+              :else ; no corrections found
+                  (log/msg "=>  " orig-digstr orig-statstr )
+        ) ))))
