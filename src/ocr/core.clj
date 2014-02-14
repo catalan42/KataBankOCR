@@ -258,40 +258,50 @@
   (doseq [sample test-data ]
     (let [sample-digpats    (parse-entry (:entry sample))
           digkeys           (->> sample-digpats digpats->digkeys)
-          ent-invalid       (not (entry-valid? digkeys))
-          illegible         (not (valid-digkeys? digkeys))
-          num-ill           (count (filter nil? digkeys))
-          digit-str         (->> digkeys digkeys->digitstr) 
-          status-str        (if illegible "ILL" 
-                              (if ent-invalid "ERR" "   " ) )
-    ]
-      (log/msg)
-      (log/msg "sample-digpats, shape:" (shape sample-digpats))
-      (log/msg (digpats->str sample-digpats))
-      (log/msg "digkeys:   " digkeys)
-      (log/msg "expected:  " (:expected sample) )
-      (log/msg "digit-str: " digit-str status-str  (str " (illegible:" illegible 
-        "  num-ill:" num-ill "  ent-invalid:" ent-invalid ")" ) )
-      (let [sample-dist (calc-pattern-dist sample-digpats) 
-            swap-list   (collect-truthy  
-                          (for [iSamp (range (count sample-digpats)) ]
-                            (for [iCanon (range (count all-digpats)) ]
-                              (let [dist (get-in sample-dist [iSamp iCanon]) ]
-                                (when (= 1 dist) 
-                                  {:iSamp iSamp :iCanon iCanon :dist dist}
-                                ) ))))
-            poss-digkeys  
-              (collect-truthy
-                (for [swapper swap-list]
-                  (let [mod-digpats (assoc sample-digpats 
-                                       (:iSamp swapper) ; idx of digpat to replace
-                                       (all-digpats (:iCanon swapper)) ) ; digpat to use
-                        mod-digkeys (->> mod-digpats digpats->digkeys)
-                  ] (when (entry-valid? mod-digkeys)
-                      {:val mod-digkeys} ))))
-            poss-digstrs (mapv #(digkeys->digitstr (:val %) ) poss-digkeys)
-      ]
-        (log/msg "poss-digstrs" poss-digstrs)
-      ) 
+          orig-invalid      (not (entry-valid? digkeys))
+          orig-ill          (not (valid-digkeys? digkeys))
+          orig-digstr       (->> digkeys digkeys->digitstr) 
+          orig-statstr      (if orig-ill "ILL" 
+                              (if orig-invalid "ERR" "   " ) )
 
+          sample-dist       (calc-pattern-dist sample-digpats) 
+          swap-list         (collect-truthy  
+                              (for [iSamp (range (count sample-digpats)) ]
+                                (for [iCanon (range (count all-digpats)) ]
+                                  (let [dist (get-in sample-dist [iSamp iCanon]) ]
+                                    (when (= 1 dist) 
+                                      {:iSamp iSamp :iCanon iCanon :dist dist}
+                                    ) ))))
+          poss-digkeys  
+            (collect-truthy
+              (for [swapper swap-list]
+                (let [mod-digpats (assoc sample-digpats 
+                                     (:iSamp swapper) ; idx of digpat to replace
+                                     (all-digpats (:iCanon swapper)) ) ; digpat to use
+                      mod-digkeys (->> mod-digpats digpats->digkeys)
+                ] (when (entry-valid? mod-digkeys)
+                    {:val mod-digkeys} ))))
+          poss-digstrs (mapv #(digkeys->digitstr (:val %) ) poss-digkeys)
+      ]
+      (log/msg)
+      (log/msg "sample-digpats:")
+      (log/msg (digpats->str sample-digpats))
+      (log/msg "expected:    " (:expected sample) )
+      (if-not orig-invalid
+        (log/msg "orig-digstr: " orig-digstr orig-statstr )
+      ;else
+        (if (= 1 (count poss-digstrs))
+          (let [corr-digstr (first poss-digstrs) ]
+            (log/msg "corr-digstr: " corr-digstr ) )
+          ;else
+          (do 
+            (let [amb-digstr (->>  poss-digstrs
+                                   (mapv #(format "'%s'" %) )
+                                   (interpose ", "  )
+                                   (apply str       )
+                                   (format "[%s]"   )  
+                             )]
+              (log/msg "amb-digstr:  " orig-digstr "AMB" amb-digstr ) ))
+        ) 
+      )
     ) ))

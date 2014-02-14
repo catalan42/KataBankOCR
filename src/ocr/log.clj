@@ -39,7 +39,7 @@
 
 (defn spy 
   "Prints label and arg to logging stream, then returns arg unaltered.  Useful for spying
-  on contents of threading stream, etc."
+  on contents of thread-last (->>) stream."
   [label arg]
   (do (msg label arg) arg) )
 
