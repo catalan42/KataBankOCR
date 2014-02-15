@@ -1,7 +1,6 @@
 (ns ocr.core
   (:require
     [clojure.string          :as str]
-    [clojure.set             :as set]
     [clojure.core.incubator  :as cci]
     [ocr.log                 :as log]
   ))
@@ -24,7 +23,7 @@
 
 (defn truthy?
   "Returns true if argument is logical true (neither nil nor false);
-  othersise returns false."
+  otherwise returns false."
   [arg]
   (if arg true false) )
 
@@ -35,56 +34,52 @@
   (truthy? (some pred coll)) )
 
 (defn collect-truthy
-  "Walks a collection and collects all truthy values into a vector."
+  "Walks a collection and collects all truthy values into a seq."
   [coll]
-  (filter truthy? 
+  (filter truthy?  
     (flatten coll) ))
 
-(defn conjv 
-  "Appends to a collection, always returning a vector."
-  [coll item]
-  (conj (vec coll) item) )
-
-; awtawt todo:  write shape-strict fn
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
    would return [4 3]). Only the first element of each seq is evaluated 
    (i.e. a ragged array like [ [1 2] [1 2 3]] would return a shape of [2 2])."
-   [array-seq]
-   (if-not (cci/seqable? array-seq)
+   [item]
+   (if-not (cci/seqable? item)
      []  ; (shape <scalar>) => []
-     (let [curr-dim   (count array-seq)
-           sub-shape  (shape (first array-seq)) ]
+     (let [curr-dim   (count item)
+           sub-shape  (shape (first item)) ]
        (into [curr-dim] sub-shape) )))
 
 (defn lines->str
-  "Format a sequence of 3 lines into a single 3-line string (including newlines)."
+  "Format a sequence of lines into a single multi-line string (including newlines)."
   [lines]
-  { :pre [ (= 3 (count lines)) ] }
   (str/join (flatten [ (interpose \newline  lines) ] )))
 
 (defn parse-digits
-  "Parse a set of 3 digit lines from the machine. Returns a digit pattern."
-  [digit-lines]
-  { :pre [(let [ [nrows ncols] (shape digit-lines) ]
-             (and (= 3 nrows )             ; 3 lines
-                  (= 0 (rem ncols 3)) )) ] ; multiple of 3
+  "Parse a set of 3 scan lines from the machine. Returns a digit pattern."
+  [scan-lines]
+  { :pre [(let [ [nrows ncols] (shape scan-lines) ]
+            (and (= 3 nrows )             ; 3 lines
+                 (= 0 (rem ncols 3)) )) ] ; multiple of 3
   }
-  (->> digit-lines                  ; shape=[3 3n]   where n=num-digits
+  (->> scan-lines                   ; shape=[3 3n]   where n=num-digits
        (mapv #(partition 3 %) )     ; shape=[3 n 3]
        (apply mapv concat     ) ))  ; shape=[n 9]
 
 (defn parse-entry
   "Parse an account number entry from the machine. Returns a vector of digit patterns"
   [entry]
-  { :pre [ (= [4 27] (shape entry) )  ; 4 lines, 27 char/line
-           (apply = (into [\space] (last entry))) ] ; last line blank
+  { :pre [ (= [4 27] (shape entry) )                 ; 4 lines, 27 char/line
+           (apply = (into [\space] (last entry))) ]  ; last line blank
     :post [ (= (shape %) [9 9] ) ] }
-  (vec (parse-digits (take 3 entry))) )
+  (vec (parse-digits (take 3 entry))) ) ; parse only first 3 scan lines of entry
 
-(def all-digpats     (parse-digits all-digit-lines))
-(def digkey->digpat  (zipmap all-digkeys all-digpats ))
-(def digpat->digkey  (zipmap all-digpats all-digkeys ))
+(def all-digpats     (parse-digits all-digit-lines))     ; shape=[10 9]
+(def digkey->digpat  (zipmap all-digkeys all-digpats ))  ; maps digit-key -> digit-pattern
+(def digpat->digkey  (zipmap all-digpats all-digkeys ))  ; maps digit-pattern -> digit-key
+
+; Maps from digit-key to numeric digit. Invalid digits found during parsing will result in
+; a digit-key value of nil.  Map nil digkey values to the '?' character for output.
 (def digkey->digit   (conj (zipmap all-digkeys all-digits ) { nil \? } ))
 
 (defn digpats->lines
@@ -105,24 +100,26 @@
       (lines->str     ) ))
 
 (defn digpats->digkeys
-  "Covert a sequence of digit-pattern values into a vector of digit-key values. Output
+  "Converts a sequence of digit-pattern values into a vector of digit-key values. Output
   vector will contain nil for unrecognized (i.e. illegible) digit-patterns."
   [digpats]
   (mapv digpat->digkey digpats) )
 
 (defn digkeys->digpats
-  "Covert a sequence of digit-key values into a vector of digit-pattern values"
+  "Converts a sequence of digit-key values into a vector of digit-pattern values"
   [digkeys]
   (mapv digkey->digpat digkeys) )
 
 (defn digkeys->lines
-  "Covert a sequence of digit-key values into a 3-line digit pattern."
+  "Converts a sequence of digit-key values into a 3-line digit pattern."
   [digkeys]
-  (digpats->lines 
-    (digkeys->digpats digkeys)) )
+    (->> digkeys
+        (digkeys->digpats )
+        (digpats->lines   ) ))
 
-(defn digkeys->digitstr
-  "Covert a sequence of digit-key values into a string of digit characters"
+(defn digkeys->digstr
+  "Converts a sequence of digit-key values into a string of digit characters.
+  Invalid (i.e. nil) digit-key values will become '?' characters in output string."
   [digkeys]
   (str/join (mapv digkey->digit digkeys)) )
 
@@ -131,19 +128,19 @@
   [digkeys]
   (every? truthy? digkeys) )
 
-(def ^:const checksum-coeffs (vec (->> (range 10) (drop 1) (reverse)) )) ; [9..1]
+(def ^:const checksum-coeffs (->> (range 1 10) reverse vec )) ; [9..1]
 (defn entry-valid?
   "Returns true if all digit-keys for an entry are legible, and a valid checksum is
   computed; otherwise, returns false.  "
   [digkeys]
-  (if (valid-digkeys? digkeys)
-    (->> digkeys
-         (mapv digkey->digit )
-         (mapv * checksum-coeffs )
-         (reduce + ) 
-         (#(mod % 11) )
-         (= 0 ) )
-    false ))
+  (truthy?
+    (when (valid-digkeys? digkeys)
+      (->> digkeys
+           (mapv digkey->digit     )
+           (mapv * checksum-coeffs )
+           (reduce +    )
+           (#(mod % 11) )
+           (= 0 ) ))))
 
 (defn digpats-valid?
   "Returns true if all digit-patterns for an entry are legible, and a valid checksum is
@@ -255,7 +252,7 @@
           digkeys           (->> sample-digpats digpats->digkeys)
           orig-invalid      (not (entry-valid? digkeys))
           orig-ill          (not (valid-digkeys? digkeys))
-          orig-digstr       (->> digkeys digkeys->digitstr) 
+          orig-digstr       (->> digkeys digkeys->digstr) 
           orig-statstr      (if orig-ill "ILL" 
                               (if orig-invalid "ERR" "   " ) )
 
@@ -276,7 +273,7 @@
                       mod-digkeys (->> mod-digpats digpats->digkeys)
                 ] (when (entry-valid? mod-digkeys)
                     {:val mod-digkeys} ))))
-          poss-digstrs (mapv #(digkeys->digitstr (:val %) ) poss-digkeys)
+          poss-digstrs (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
       ]
       (log/msg)
       (log/msg (digpats->str sample-digpats))
