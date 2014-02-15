@@ -291,11 +291,15 @@
       (log/ext "exp:" (:expected test-case) )
       (if orig-valid
         (log/msg "=>  " orig-digstr orig-statstr )
-      ;else
+      ;else <original scan invalid>
         (cond (= 1 (count poss-digstrs))
+                ; Only 1 possible correct value with (dist=1). Report it as the answer but
+                ; label it as "FIX" to indicate auto-correct has occurred.
                 (let [corr-digstr (first poss-digstrs) ]
                   (log/msg "=>  " corr-digstr "FIX") )
               (< 1 (count poss-digstrs))
+                ; Multiple possible correct values with (dist=1) exist. Report the
+                ; original scanned string and the possible ambiguous account numbers.
                 (let [amb-digstr (->>  poss-digstrs
                                        (mapv #(format "'%s'" %) )
                                        (interpose ", "  )
@@ -304,6 +308,7 @@
                                  )]
                   (log/msg "=>  " orig-digstr "AMB" amb-digstr ) )
               :else ; no corrections found
+                  ; Scanned value is incorrect but no valid values with (dist=1) exist.
                   (log/msg "=>  " orig-digstr orig-statstr )
         ) ))))
 
