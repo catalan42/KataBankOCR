@@ -39,6 +39,11 @@
   (filter truthy?  
     (flatten coll) ))
 
+(defn conjv 
+  "Appends to a collection, always returning a vector."
+  [coll item]
+  (conj (vec coll) item) )
+
 (defn shape
   "Return a vector of the dimensions of a nested seqs (e.g. a 4x3 array 
    would return [4 3]). Only the first element of each seq is evaluated 
@@ -161,13 +166,11 @@
     (assert (=  num-data-lines (int num-data-lines) )) ; no partial entries
     (assert (=  num-data-lines (count expected-strs))) ; equal numbers
     (let [entries (partition 4 data-lines)]
-      (reduce conj []
+      (reduce conjv []
         (map #(hash-map :entry %1  :expected %2)
                          entries    expected-strs )))))
 
-(defn do-tests 
-  "Documents (& tests) regex stuff."
-  []
+(defn do-tests []
   (log/dbg "********************************************************************************")
   (log/dbg "Running tests...")
 
@@ -179,7 +182,13 @@
 
   (let [x23 [ [1 2 3]
               [4 5 6] ]
-  ] (assert (= (shape x23) [2 3])) )
+        x32 (apply mapv vector x23)  ; map is like a matrix transpose
+  ] 
+    (log/dbg "x23" x23 )
+    (log/dbg "x32" x32 )
+    (assert (= (shape x23) [2 3])) 
+    (assert (= (shape x32) [3 2])) 
+  )
   (assert (= (shape all-digit-lines) [3 30] )) ; canonical lines
   (assert (= (shape all-digpats)     [10 9] )) ; canonical digit-patterns
   (assert (= (str/join (digkey->digpat :nine) ) " _ |_| _|" )) ; sample digit-pattern
@@ -200,22 +209,22 @@
   (log/dbg  (lines->str 
               (digkeys->lines [ :one :two :three ]) ))
 
-  (assert (= (digpats->digkeys all-digpats) all-digkeys ))
-  (assert (= (digkeys->digpats all-digkeys) all-digpats ))
+  (assert (= (->> all-digpats digpats->digkeys) all-digkeys ))
+  (assert (= (->> all-digkeys digkeys->digpats) all-digpats ))
 
   (assert (= (digpats->lines all-digpats)
-              [ " _     _  _     _  _  _  _  _ "
-                "| |  | _| _||_||_ |_   ||_||_|"
-                "|_|  ||_  _|  | _||_|  ||_| _|"] ))
+              [" _     _  _     _  _  _  _  _ "
+               "| |  | _| _||_||_ |_   ||_||_|"
+               "|_|  ||_  _|  | _||_|  ||_| _|"] ))
 
-  (assert (= (digkeys->lines all-digkeys) all-digit-lines ))
+  (assert (= (->> all-digkeys digkeys->lines) all-digit-lines ))
 
-  (let [entry-1-9 [ "    _  _     _  _  _  _  _ "
-                    "  | _| _||_||_ |_   ||_||_|"
-                    "  ||_  _|  | _||_|  ||_| _|"
-                    "                           " ]
+  (let [entry-1-9 ["    _  _     _  _  _  _  _ "
+                   "  | _| _||_||_ |_   ||_||_|"
+                   "  ||_  _|  | _||_|  ||_| _|"
+                   "                           " ]
         ent19-digpats (parse-entry entry-1-9) ]
-    (assert (=  (digpats->digkeys ent19-digpats)
+    (assert (=  (->> ent19-digpats digpats->digkeys)
                 [ :one :two :three :four :five :six :seven :eight :nine ] ))
     (log/dbg)
     (log/dbg "ent19-digpats")
@@ -237,48 +246,50 @@
 (defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
 
 (defn calc-pattern-dist
-  "Returns the 'distance' between a sample digit-pattern and each the canonical digit
+  "Returns the 'distance' between a entry digit-pattern and each the canonical digit
   pattern, calculated as the number of elements where they differ."
-  [sample-digpats]
-  (vec (for [sample-pat sample-digpats]
+  [entry-digpats]
+  (vec (for [entry-pat entry-digpats]
     (vec (for [canon-pat all-digpats]
-      (let [deltas      (map #(not= %1 %2) sample-pat canon-pat)
+      (let [deltas      (map #(not= %1 %2) entry-pat canon-pat)
             num-deltas  (count (filter truthy? deltas)) ]
         num-deltas ))))))
 
-(defn -main [& args]
-  (doseq [sample test-data ]
-    (let [sample-digpats    (parse-entry (:entry sample))
-          digkeys           (->> sample-digpats digpats->digkeys)
-          orig-invalid      (not (entry-valid? digkeys))
+(defn run []
+  (doseq [test-case test-data]
+    (let [entry-digpats    (parse-entry (:entry test-case))
+          digkeys           (->> entry-digpats digpats->digkeys)
+          orig-valid        (entry-valid? digkeys)
           orig-ill          (not (valid-digkeys? digkeys))
           orig-digstr       (->> digkeys digkeys->digstr) 
           orig-statstr      (if orig-ill "ILL" 
-                              (if orig-invalid "ERR" "   " ) )
+                              (if orig-valid "   " "ERR" ) )
 
-          sample-dist       (calc-pattern-dist sample-digpats) 
+          entry-dist       (calc-pattern-dist entry-digpats) 
           swap-list         (collect-truthy  
-                              (for [iSamp (range (count sample-digpats)) ]
+                              (for [iSamp (range (count entry-digpats)) ]
                                 (for [iCanon (range (count all-digpats)) ]
-                                  (let [dist (get-in sample-dist [iSamp iCanon]) ]
+                                  (let [dist (get-in entry-dist [iSamp iCanon]) ]
                                     (when (= 1 dist) 
                                       {:iSamp iSamp :iCanon iCanon :dist dist}
                                     ) ))))
           poss-digkeys  
             (collect-truthy
               (for [swapper swap-list]
-                (let [mod-digpats (assoc sample-digpats 
-                                     (:iSamp swapper) ; idx of digpat to replace
-                                     (all-digpats (:iCanon swapper)) ) ; digpat to use
+                (let [mod-digpats (assoc entry-digpats 
+                                    (:iSamp swapper) ; idx of digpat to replace
+                                    (all-digpats (:iCanon swapper)) ) ; digpat to use
+
                       mod-digkeys (->> mod-digpats digpats->digkeys)
                 ] (when (entry-valid? mod-digkeys)
                     {:val mod-digkeys} ))))
+
           poss-digstrs (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
       ]
       (log/msg)
-      (log/msg (digpats->str sample-digpats))
-      (log/ext "exp:" (:expected sample) )
-      (if-not orig-invalid
+      (log/msg (digpats->str entry-digpats))
+      (log/ext "exp:" (:expected test-case) )
+      (if orig-valid
         (log/msg "=>  " orig-digstr orig-statstr )
       ;else
         (cond (= 1 (count poss-digstrs))
@@ -295,3 +306,6 @@
               :else ; no corrections found
                   (log/msg "=>  " orig-digstr orig-statstr )
         ) ))))
+
+(defn -main [& args]
+  (run) )

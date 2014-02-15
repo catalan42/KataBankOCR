@@ -43,8 +43,3 @@
   [label arg]
   (do (msg label arg) arg) )
 
-(defn conjv 
-  "Appends to a collection, always returning a vector."
-  [coll item]
-  (conj (vec coll) item) )
-
