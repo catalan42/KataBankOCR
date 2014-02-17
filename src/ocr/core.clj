@@ -21,6 +21,11 @@
   "Master list of digits (in order)"
   (vec (range 10)) )
 
+(def ^:const max-fix-distance 
+  "Upper limit on the Mahalanobis distance allowed between the original and corrected
+  versions of an entry."
+  1 )
+
 (defn truthy?
   "Returns true if argument is logical true (neither nil nor false);
   otherwise returns false."
@@ -32,12 +37,6 @@
   Like clojure.core/some, but returns only true or false."
   [pred coll]
   (truthy? (some pred coll)) )
-
-(defn collect-truthy
-  "Walks a collection and collects all truthy values into a seq."
-  [coll]
-  (filter truthy?  
-    (flatten coll) ))
 
 (defn conjv 
   "Appends to a collection, always returning a vector."
@@ -266,32 +265,29 @@
   [digit-str status-str & ambiguous-str]
   (log/msg "=>  " digit-str status-str (apply str ambiguous-str)) )
 
-(def ^:const max-fix-distance 1)
-
 (defn calc-poss-digstrs
   "Returns a list of digit-strings that have valid checksums and are within the maximum
-  specified 'distance' of the entry pattern."
+  allowed distance of the entry pattern."
   [entry-digpats]
-  (let [
-    entry-dist    (calc-pattern-dist entry-digpats) 
-    swap-list     (collect-truthy  
-                    (for [iSamp (range (count entry-digpats)) ]
-                      (for [iCanon (range (count all-digpats)) ]
-                        (let [dist (get-in entry-dist [iSamp iCanon]) ]
-                          (when (<= dist max-fix-distance) 
-                            {:iSamp iSamp :iCanon iCanon :dist dist}
-                          ) ))))
-    poss-digkeys  (collect-truthy
-                    (for [swapper swap-list]
-                      (let [mod-digpats (assoc entry-digpats 
-                                          (:iSamp swapper) ; idx of digpat to replace
-                                          (all-digpats (:iCanon swapper)) ) ; digpat to use
-
-                            mod-digkeys (->> mod-digpats digpats->digkeys)
-                      ] (when (entry-valid? mod-digkeys)
-                          {:val mod-digkeys} )  ; return value of (for...)
-                      )))
-    poss-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
+  (let [entry-dist    (calc-pattern-dist entry-digpats) 
+        swap-list     (filter truthy? (flatten
+                        (for [iSamp (range (count entry-digpats)) ]
+                          (for [iCanon (range (count all-digpats)) ]
+                            (let [dist (get-in entry-dist [iSamp iCanon]) ]
+                              (when (<= dist max-fix-distance) 
+                                {:iSamp iSamp :iCanon iCanon :dist dist}
+                              ) )))))
+        poss-digkeys  (filter truthy? (flatten
+                        (for [swapper swap-list]
+                          (let [mod-digpats 
+                                    (assoc entry-digpats 
+                                        (:iSamp swapper) ; idx of digpat to replace
+                                        (all-digpats (:iCanon swapper)) ) ; digpat to use
+                                mod-digkeys (->> mod-digpats digpats->digkeys)
+                          ] (when (entry-valid? mod-digkeys)
+                              {:val mod-digkeys} )
+                          ))))
+        poss-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
   ] poss-digstrs ))
 
 (defn run []
