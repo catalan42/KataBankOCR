@@ -255,10 +255,21 @@
       (reduce conjv []
         (map #(hash-map :entry %1  :expected %2)
                          entries    expected-strs )))))
+(defn display-msg
+  "Displays a nicely format status message."
+  ; Sample output:
+  ;   =>   000000000                                  - valid entry read
+  ;   =>   711111111 FIX                              - invalid entry, but fixed uniquely
+  ;   =>   222222222 ERR                              - invalid entryd, no legal fix
+  ;   =>   555555555 AMB ['559555555', '555655555']   - invalid entryd, multiple legal fixes
+  ;   =>   1234?678? ILL                              - illegible entry, no legal fix
+  [digit-str status-str & ambiguous-str]
+  (log/msg "=>  " orig-digstr orig-statstr (apply str ambiguous-str) )
+)
 
 (defn run []
   (doseq [test-case test-data]
-    (let [entry-digpats    (parse-entry (:entry test-case))
+    (let [entry-digpats     (parse-entry (:entry test-case))
           digkeys           (->> entry-digpats digpats->digkeys)
           orig-valid        (entry-valid? digkeys)
           orig-ill          (not (valid-digkeys? digkeys))
@@ -291,7 +302,7 @@
       (log/msg (digpats->str entry-digpats))
       (log/ext "exp:" (:expected test-case) )
       (if orig-valid
-        (log/msg "=>  " orig-digstr orig-statstr )
+        (display-msg orig-digstr orig-statstr )
       ;else <original scan invalid>
         (cond (= 1 (count poss-digstrs))
                 ; Only 1 possible correct value with (dist=1). Report it as the answer but
