@@ -264,8 +264,7 @@
   ;   =>   555555555 AMB ['559555555', '555655555']   - invalid entryd, multiple legal fixes
   ;   =>   1234?678? ILL                              - illegible entry, no legal fix
   [digit-str status-str & ambiguous-str]
-  (log/msg "=>  " orig-digstr orig-statstr (apply str ambiguous-str) )
-)
+  (log/msg "=>  " digit-str status-str (apply str ambiguous-str)) )
 
 (defn run []
   (doseq [test-case test-data]
@@ -307,8 +306,8 @@
         (cond (= 1 (count poss-digstrs))
                 ; Only 1 possible correct value with (dist=1). Report it as the answer but
                 ; label it as "FIX" to indicate auto-correct has occurred.
-                (let [corr-digstr (first poss-digstrs) ]
-                  (log/msg "=>  " corr-digstr "FIX") )
+                (let [fixed-digstr (first poss-digstrs) ]
+                  (display-msg fixed-digstr "FIX") )
               (< 1 (count poss-digstrs))
                 ; Multiple possible correct values with (dist=1) exist. Report the
                 ; original scanned string and the possible ambiguous account numbers.
@@ -318,10 +317,10 @@
                                        (apply str       )
                                        (format "[%s]"   )  
                                  )]
-                  (log/msg "=>  " orig-digstr "AMB" amb-digstr ) )
+                  (display-msg orig-digstr "AMB" amb-digstr ) )
               :else ; no corrections found
                   ; Scanned value is incorrect but no valid values with (dist=1) exist.
-                  (log/msg "=>  " orig-digstr orig-statstr )
+                  (display-msg orig-digstr orig-statstr )
         ) ))))
 
 (defn -main [& args]
