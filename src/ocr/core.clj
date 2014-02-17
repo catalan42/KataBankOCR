@@ -134,6 +134,7 @@
   (every? truthy? digkeys) )
 
 (def ^:const checksum-coeffs (->> (range 1 10) reverse vec )) ; [9..1]
+
 (defn entry-valid?
   "Returns true if all digit-keys for an entry are legible, and a valid checksum is
   computed; otherwise, returns false.  "
@@ -155,20 +156,15 @@
        digpats->digkeys  
        entry-valid? ))
 
-(def test-data   
-  "A collection of all test data-lines and expected results"
-  (let [data-lines      (vec (str/split-lines 
-                               (slurp "resources/test-data.txt")) )
-        num-data-lines  (/ (count data-lines)  4) ; 4 lines per entry
-        expected-strs   (vec (->> (slurp "resources/test-result.txt")
-                                  (str/split-lines )
-                                  (map str/trim    ) )) ]
-    (assert (=  num-data-lines (int num-data-lines) )) ; no partial entries
-    (assert (=  num-data-lines (count expected-strs))) ; equal numbers
-    (let [entries (partition 4 data-lines)]
-      (reduce conjv []
-        (map #(hash-map :entry %1  :expected %2)
-                         entries    expected-strs )))))
+(defn calc-pattern-dist
+  "Returns the 'distance' between a entry digit-pattern and each the canonical digit
+  pattern, calculated as the number of elements where they differ."
+  [entry-digpats]
+  (vec (for [entry-pat entry-digpats]
+    (vec (for [canon-pat all-digpats]
+      (let [deltas      (map #(not= %1 %2) entry-pat canon-pat)
+            num-deltas  (count (filter truthy? deltas)) ]
+        num-deltas ))))))
 
 (defn do-tests []
   (log/dbg "********************************************************************************")
@@ -245,15 +241,20 @@
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
 
-(defn calc-pattern-dist
-  "Returns the 'distance' between a entry digit-pattern and each the canonical digit
-  pattern, calculated as the number of elements where they differ."
-  [entry-digpats]
-  (vec (for [entry-pat entry-digpats]
-    (vec (for [canon-pat all-digpats]
-      (let [deltas      (map #(not= %1 %2) entry-pat canon-pat)
-            num-deltas  (count (filter truthy? deltas)) ]
-        num-deltas ))))))
+(def test-data   
+  "A collection of all test data-lines and expected results"
+  (let [data-lines      (vec (str/split-lines 
+                               (slurp "resources/test-data.txt")) )
+        num-data-lines  (/ (count data-lines)  4) ; 4 lines per entry
+        expected-strs   (vec (->> (slurp "resources/test-result.txt")
+                                  (str/split-lines )
+                                  (map str/trim    ) )) ]
+    (assert (=  num-data-lines (int num-data-lines) )) ; no partial entries
+    (assert (=  num-data-lines (count expected-strs))) ; equal numbers
+    (let [entries (partition 4 data-lines)]
+      (reduce conjv []
+        (map #(hash-map :entry %1  :expected %2)
+                         entries    expected-strs )))))
 
 (defn run []
   (doseq [test-case test-data]
