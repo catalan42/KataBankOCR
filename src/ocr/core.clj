@@ -296,21 +296,21 @@
 
 (defn run []
   (doseq [test-case test-data]
-    (let [entry-digpats     (parse-entry (:entry test-case))
-          entry-digkeys     (->> entry-digpats digpats->digkeys)
-          entry-valid       (entry-valid? entry-digkeys)
-          entry-illegible   (not (valid-digkeys? entry-digkeys))
-          entry-digstr      (->> entry-digkeys digkeys->digstr) 
-          entry-statstr     (if entry-illegible "ILL" 
+    (let [digpats           (parse-entry (:entry test-case))
+          digkeys           (->> digpats digpats->digkeys)
+          entry-valid       (entry-valid? digkeys)
+          entry-illegible   (not (valid-digkeys? digkeys))
+          entry-digstr      (->> digkeys digkeys->digstr) 
+          status-str        (if entry-illegible "ILL" 
                               (if entry-valid "   " "ERR" ) )
     ]
       (log/msg)
-      (log/msg (digpats->str entry-digpats))
+      (log/msg (digpats->str digpats))
       (log/ext "exp:" (:expected test-case) )
       (if entry-valid
-        (display-msg entry-digstr entry-statstr )
+        (display-msg entry-digstr status-str )
       ;else - invalid entry read from machine
-        (let [ poss-digstrs (calc-poss-digstrs entry-digpats)
+        (let [ poss-digstrs (calc-poss-digstrs digpats)
         ] (cond (= 1 (count poss-digstrs))
                   ; Only 1 possible correct value with (dist=1). Report it as the answer but
                   ; label it as "FIX" to indicate auto-correct has occurred.
@@ -328,7 +328,7 @@
                     (display-msg entry-digstr "AMB" amb-digstr ) )
                 :else ; no corrections found
                     ; Scanned value is incorrect but all values with (dist=1) are invalid.
-                    (display-msg entry-digstr entry-statstr)
+                    (display-msg entry-digstr status-str)
           ) )))))
 
 (defn -main [& args]
