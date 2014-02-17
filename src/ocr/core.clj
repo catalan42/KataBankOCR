@@ -157,7 +157,7 @@
        entry-valid? ))
 
 (defn calc-pattern-dist
-  "Returns the 'distance' between a entry digit-pattern and each the canonical digit
+  "Returns the Mahalanobis distance between a entry digit-pattern and each the canonical digit
   pattern, calculated as the number of elements where they differ."
   [entry-digpats]
   (vec (for [entry-pat entry-digpats]
@@ -266,62 +266,70 @@
   [digit-str status-str & ambiguous-str]
   (log/msg "=>  " digit-str status-str (apply str ambiguous-str)) )
 
+(def ^:const max-fix-distance 1)
+
+(defn calc-poss-digstrs
+  "Returns a list of digit-strings that have valid checksums and are within the maximum
+  specified 'distance' of the entry pattern."
+  [entry-digpats]
+  (let [
+    entry-dist    (calc-pattern-dist entry-digpats) 
+    swap-list     (collect-truthy  
+                    (for [iSamp (range (count entry-digpats)) ]
+                      (for [iCanon (range (count all-digpats)) ]
+                        (let [dist (get-in entry-dist [iSamp iCanon]) ]
+                          (when (<= dist max-fix-distance) 
+                            {:iSamp iSamp :iCanon iCanon :dist dist}
+                          ) ))))
+    poss-digkeys  (collect-truthy
+                    (for [swapper swap-list]
+                      (let [mod-digpats (assoc entry-digpats 
+                                          (:iSamp swapper) ; idx of digpat to replace
+                                          (all-digpats (:iCanon swapper)) ) ; digpat to use
+
+                            mod-digkeys (->> mod-digpats digpats->digkeys)
+                      ] (when (entry-valid? mod-digkeys)
+                          {:val mod-digkeys} )  ; return value of (for...)
+                      )))
+    poss-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
+  ] poss-digstrs ))
+
 (defn run []
   (doseq [test-case test-data]
     (let [entry-digpats     (parse-entry (:entry test-case))
-          digkeys           (->> entry-digpats digpats->digkeys)
-          orig-valid        (entry-valid? digkeys)
-          orig-ill          (not (valid-digkeys? digkeys))
-          orig-digstr       (->> digkeys digkeys->digstr) 
-          orig-statstr      (if orig-ill "ILL" 
-                              (if orig-valid "   " "ERR" ) )
-
-          entry-dist       (calc-pattern-dist entry-digpats) 
-          swap-list         (collect-truthy  
-                              (for [iSamp (range (count entry-digpats)) ]
-                                (for [iCanon (range (count all-digpats)) ]
-                                  (let [dist (get-in entry-dist [iSamp iCanon]) ]
-                                    (when (= 1 dist) 
-                                      {:iSamp iSamp :iCanon iCanon :dist dist}
-                                    ) ))))
-          poss-digkeys  
-            (collect-truthy
-              (for [swapper swap-list]
-                (let [mod-digpats (assoc entry-digpats 
-                                    (:iSamp swapper) ; idx of digpat to replace
-                                    (all-digpats (:iCanon swapper)) ) ; digpat to use
-
-                      mod-digkeys (->> mod-digpats digpats->digkeys)
-                ] (when (entry-valid? mod-digkeys)
-                    {:val mod-digkeys} ))))
-
-          poss-digstrs (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
-      ]
+          entry-digkeys     (->> entry-digpats digpats->digkeys)
+          entry-valid       (entry-valid? entry-digkeys)
+          entry-illegible   (not (valid-digkeys? entry-digkeys))
+          entry-digstr      (->> entry-digkeys digkeys->digstr) 
+          entry-statstr     (if entry-illegible "ILL" 
+                              (if entry-valid "   " "ERR" ) )
+    ]
       (log/msg)
       (log/msg (digpats->str entry-digpats))
       (log/ext "exp:" (:expected test-case) )
-      (if orig-valid
-        (display-msg orig-digstr orig-statstr )
-      ;else <original scan invalid>
-        (cond (= 1 (count poss-digstrs))
-                ; Only 1 possible correct value with (dist=1). Report it as the answer but
-                ; label it as "FIX" to indicate auto-correct has occurred.
-                (let [fixed-digstr (first poss-digstrs) ]
-                  (display-msg fixed-digstr "FIX") )
-              (< 1 (count poss-digstrs))
-                ; Multiple possible correct values with (dist=1) exist. Report the
-                ; original scanned string and the possible ambiguous account numbers.
-                (let [amb-digstr (->>  poss-digstrs
-                                       (mapv #(format "'%s'" %) )
-                                       (interpose ", "  )
-                                       (apply str       )
-                                       (format "[%s]"   )  
-                                 )]
-                  (display-msg orig-digstr "AMB" amb-digstr ) )
-              :else ; no corrections found
-                  ; Scanned value is incorrect but no valid values with (dist=1) exist.
-                  (display-msg orig-digstr orig-statstr )
-        ) ))))
+      (if entry-valid
+        (display-msg entry-digstr entry-statstr )
+      ;else - invalid entry read from machine
+        (let [ poss-digstrs (calc-poss-digstrs entry-digpats)
+        ] (cond (= 1 (count poss-digstrs))
+                  ; Only 1 possible correct value with (dist=1). Report it as the answer but
+                  ; label it as "FIX" to indicate auto-correct has occurred.
+                  (let [fixed-digstr (first poss-digstrs) ]
+                    (display-msg fixed-digstr "FIX") )
+                (< 1 (count poss-digstrs))
+                  ; Multiple possible correct values with (dist=1) exist. Report the
+                  ; original scanned string and the possible ambiguous account numbers.
+                  (let [amb-digstr (->>  poss-digstrs
+                                         (mapv #(format "'%s'" %) )
+                                         (interpose ", "  )
+                                         (apply str       )
+                                         (format "[%s]"   )  
+                                   )]
+                    (display-msg entry-digstr "AMB" amb-digstr ) )
+                :else ; no corrections found
+                    ; Scanned value is incorrect but all values with (dist=1) are invalid.
+                    (display-msg entry-digstr entry-statstr)
+          ) )))))
 
 (defn -main [& args]
   (run) )
