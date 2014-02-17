@@ -265,7 +265,7 @@
   [digit-str status-str & ambiguous-str]
   (log/msg "=>  " digit-str status-str (apply str ambiguous-str)) )
 
-(defn calc-poss-digstrs
+(defn calc-fix-digstrs
   "Returns a list of digit-strings that have valid checksums and are within the maximum
   allowed distance of the entry pattern."
   [entry-digpats]
@@ -287,8 +287,8 @@
                           ] (when (entry-valid? mod-digkeys)
                               {:val mod-digkeys} )
                           ))))
-        poss-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
-  ] poss-digstrs ))
+        fix-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
+  ] fix-digstrs ))
 
 (defn run []
   (doseq [test-case test-data]
@@ -298,7 +298,7 @@
           entry-illegible   (not (valid-digkeys? digkeys))
           entry-digstr      (->> digkeys digkeys->digstr) 
           status-str        (if entry-illegible "ILL" 
-                              (if entry-valid "   " "ERR" ) )
+                              (if-not entry-valid "ERR" "   " ) )
     ]
       (log/msg)
       (log/msg (digpats->str digpats))
@@ -306,16 +306,16 @@
       (if entry-valid
         (display-msg entry-digstr status-str )
       ;else - invalid entry read from machine
-        (let [ poss-digstrs (calc-poss-digstrs digpats)
-        ] (cond (= 1 (count poss-digstrs))
+        (let [ fix-digstrs (calc-fix-digstrs digpats)
+        ] (cond (= 1 (count fix-digstrs))
                   ; Only 1 possible correct value with (dist=1). Report it as the answer but
                   ; label it as "FIX" to indicate auto-correct has occurred.
-                  (let [fixed-digstr (first poss-digstrs) ]
+                  (let [fixed-digstr (first fix-digstrs) ]
                     (display-msg fixed-digstr "FIX") )
-                (< 1 (count poss-digstrs))
+                (< 1 (count fix-digstrs))
                   ; Multiple possible correct values with (dist=1) exist. Report the
                   ; original scanned string and the possible ambiguous account numbers.
-                  (let [amb-digstr (->>  poss-digstrs
+                  (let [amb-digstr (->>  fix-digstrs
                                          (mapv #(format "'%s'" %) )
                                          (interpose ", "  )
                                          (apply str       )
