@@ -165,6 +165,95 @@
             num-deltas  (count (filter truthy? deltas)) ]
         num-deltas ))))))
 
+(defn calc-fix-digstrs
+  "Returns all possible 'fixed' digit-strings for the current entry. These are
+  digit-strings that have valid checksums and are within the maximum allowed distance of
+  the entry pattern."
+  [entry-digpats]
+  (let [fix-dists     (calc-pattern-dist entry-digpats)
+        swap-list     (filter truthy? (flatten
+                        (for [iDigit (range (count entry-digpats)) ]  ; entry digpat idx
+                          (for [iCanon (range (count all-digpats)) ]  ; canonical digpat idx
+                            (let [dist (get-in fix-dists [iDigit iCanon]) ]
+                              (when (<= dist max-fix-distance) 
+                                {:iDigit iDigit :iCanon iCanon :dist dist}
+                              ) )))))
+        poss-digkeys  (filter truthy? (flatten
+                        (for [swapper swap-list]
+                          (let [mod-digpats 
+                                    (assoc entry-digpats 
+                                        (:iDigit swapper) ; idx of digpat to replace
+                                        (all-digpats (:iCanon swapper)) ) ; digpat to use
+                                mod-digkeys (->> mod-digpats digpats->digkeys)
+                          ] (when (entry-valid? mod-digkeys)
+                              {:val mod-digkeys} )
+                          ))))
+        fix-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
+  ] fix-digstrs ))
+
+(defn display-msg
+  "Displays a nicely format status message."
+  ; Sample output:
+  ;   =>   000000000                                  - valid entry read
+  ;   =>   711111111 FIX                              - invalid entry, but fixed uniquely
+  ;   =>   222222222 ERR                              - invalid entryd, no legal fix
+  ;   =>   555555555 AMB ['559555555', '555655555']   - invalid entryd, multiple legal fixes
+  ;   =>   1234?678? ILL                              - illegible entry, no legal fix
+  [digit-str status-str & ambiguous-str]
+  (log/msg "=>  " digit-str status-str (apply str ambiguous-str)) )
+
+(def test-data   
+  "A collection of all test data-lines and expected results"
+  (let [data-lines      (vec (str/split-lines 
+                               (slurp "resources/test-data.txt")) )
+        num-data-lines  (/ (count data-lines)  4) ; 4 lines per entry
+        expected-strs   (vec (->> (slurp "resources/test-result.txt")
+                                  (str/split-lines )
+                                  (map str/trim    ) )) ]
+    (assert (=  num-data-lines (int num-data-lines) )) ; no partial entries
+    (assert (=  num-data-lines (count expected-strs))) ; equal numbers
+    (let [entries (partition 4 data-lines)]
+      (reduce conjv []
+        (map #(hash-map :entry %1  :expected %2)
+                         entries    expected-strs )))))
+
+(defn run []
+  (doseq [test-case test-data]
+    (let [digpats           (parse-entry (:entry test-case))
+          digkeys           (->> digpats digpats->digkeys)
+          entry-valid       (entry-valid? digkeys)
+          entry-illegible   (not (valid-digkeys? digkeys))
+          entry-digstr      (->> digkeys digkeys->digstr) 
+          status-str        (if entry-illegible "ILL" 
+                              (if-not entry-valid "ERR" "   " ) )
+    ]
+      (log/msg)
+      (log/msg (digpats->str digpats))
+      (log/ext "exp:" (:expected test-case) )
+      (if entry-valid
+        (display-msg entry-digstr status-str )
+      ;else - invalid entry read from machine
+        (let [ fix-digstrs (calc-fix-digstrs digpats)
+        ] (cond (= 1 (count fix-digstrs))
+                  ; Only 1 possible correct value with (dist=1). Report it as the answer but
+                  ; label it as "FIX" to indicate auto-correct has occurred.
+                  (let [fixed-digstr (first fix-digstrs) ]
+                    (display-msg fixed-digstr "FIX") )
+                (< 1 (count fix-digstrs))
+                  ; Multiple possible correct values with (dist=1) exist. Report the
+                  ; original scanned string and the possible ambiguous account numbers.
+                  (let [amb-digstr (->>  fix-digstrs
+                                         (mapv #(format "'%s'" %) )
+                                         (interpose ", "  )
+                                         (apply str       )
+                                         (format "[%s]"   )  
+                                   )]
+                    (display-msg entry-digstr "AMB" amb-digstr ) )
+                :else ; no corrections found
+                    ; Scanned value is incorrect but all values with (dist=1) are invalid.
+                    (display-msg entry-digstr status-str)
+          ) )))))
+
 (defn do-tests []
   (log/dbg "********************************************************************************")
   (log/dbg "Running tests...")
@@ -239,93 +328,6 @@
 )
 
 (defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
-
-(def test-data   
-  "A collection of all test data-lines and expected results"
-  (let [data-lines      (vec (str/split-lines 
-                               (slurp "resources/test-data.txt")) )
-        num-data-lines  (/ (count data-lines)  4) ; 4 lines per entry
-        expected-strs   (vec (->> (slurp "resources/test-result.txt")
-                                  (str/split-lines )
-                                  (map str/trim    ) )) ]
-    (assert (=  num-data-lines (int num-data-lines) )) ; no partial entries
-    (assert (=  num-data-lines (count expected-strs))) ; equal numbers
-    (let [entries (partition 4 data-lines)]
-      (reduce conjv []
-        (map #(hash-map :entry %1  :expected %2)
-                         entries    expected-strs )))))
-(defn display-msg
-  "Displays a nicely format status message."
-  ; Sample output:
-  ;   =>   000000000                                  - valid entry read
-  ;   =>   711111111 FIX                              - invalid entry, but fixed uniquely
-  ;   =>   222222222 ERR                              - invalid entryd, no legal fix
-  ;   =>   555555555 AMB ['559555555', '555655555']   - invalid entryd, multiple legal fixes
-  ;   =>   1234?678? ILL                              - illegible entry, no legal fix
-  [digit-str status-str & ambiguous-str]
-  (log/msg "=>  " digit-str status-str (apply str ambiguous-str)) )
-
-(defn calc-fix-digstrs
-  "Returns a list of digit-strings that have valid checksums and are within the maximum
-  allowed distance of the entry pattern."
-  [entry-digpats]
-  (let [entry-dist    (calc-pattern-dist entry-digpats) 
-        swap-list     (filter truthy? (flatten
-                        (for [iSamp (range (count entry-digpats)) ]
-                          (for [iCanon (range (count all-digpats)) ]
-                            (let [dist (get-in entry-dist [iSamp iCanon]) ]
-                              (when (<= dist max-fix-distance) 
-                                {:iSamp iSamp :iCanon iCanon :dist dist}
-                              ) )))))
-        poss-digkeys  (filter truthy? (flatten
-                        (for [swapper swap-list]
-                          (let [mod-digpats 
-                                    (assoc entry-digpats 
-                                        (:iSamp swapper) ; idx of digpat to replace
-                                        (all-digpats (:iCanon swapper)) ) ; digpat to use
-                                mod-digkeys (->> mod-digpats digpats->digkeys)
-                          ] (when (entry-valid? mod-digkeys)
-                              {:val mod-digkeys} )
-                          ))))
-        fix-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
-  ] fix-digstrs ))
-
-(defn run []
-  (doseq [test-case test-data]
-    (let [digpats           (parse-entry (:entry test-case))
-          digkeys           (->> digpats digpats->digkeys)
-          entry-valid       (entry-valid? digkeys)
-          entry-illegible   (not (valid-digkeys? digkeys))
-          entry-digstr      (->> digkeys digkeys->digstr) 
-          status-str        (if entry-illegible "ILL" 
-                              (if-not entry-valid "ERR" "   " ) )
-    ]
-      (log/msg)
-      (log/msg (digpats->str digpats))
-      (log/ext "exp:" (:expected test-case) )
-      (if entry-valid
-        (display-msg entry-digstr status-str )
-      ;else - invalid entry read from machine
-        (let [ fix-digstrs (calc-fix-digstrs digpats)
-        ] (cond (= 1 (count fix-digstrs))
-                  ; Only 1 possible correct value with (dist=1). Report it as the answer but
-                  ; label it as "FIX" to indicate auto-correct has occurred.
-                  (let [fixed-digstr (first fix-digstrs) ]
-                    (display-msg fixed-digstr "FIX") )
-                (< 1 (count fix-digstrs))
-                  ; Multiple possible correct values with (dist=1) exist. Report the
-                  ; original scanned string and the possible ambiguous account numbers.
-                  (let [amb-digstr (->>  fix-digstrs
-                                         (mapv #(format "'%s'" %) )
-                                         (interpose ", "  )
-                                         (apply str       )
-                                         (format "[%s]"   )  
-                                   )]
-                    (display-msg entry-digstr "AMB" amb-digstr ) )
-                :else ; no corrections found
-                    ; Scanned value is incorrect but all values with (dist=1) are invalid.
-                    (display-msg entry-digstr status-str)
-          ) )))))
 
 (defn -main [& args]
   (run) )
