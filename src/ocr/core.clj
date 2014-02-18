@@ -6,6 +6,7 @@
   ))
 
 (log/set-min-level log/MESSAGE)
+(log/set-min-level log/DEBUG)
 
 (def ^:const all-digit-lines 
   "Master pattern defintion for machine output digit patterns (in order)"
@@ -244,8 +245,8 @@
       (if entry-valid
         (display-msg digit-string status-str )  ; successful read valid data
       ;else - invalid entry read from machine
-        (let [ fix-digstrs (calc-fix-digstrs digpats)  ; list of "fixed" digit-strings
-        ] (cond (= 1 (count fix-digstrs))
+        (let [ fix-digstrs (calc-fix-digstrs digpats) ]  ; "fixed" digit-strings
+          (cond (= 1 (count fix-digstrs))
                   ; Only 1 possible correct value. Report it as the answer but
                   ; label it as "FIX" to indicate auto-correct has occurred.
                   (display-msg (first fix-digstrs) "FIX")
