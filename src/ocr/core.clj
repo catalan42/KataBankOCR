@@ -49,7 +49,7 @@
    (i.e. a ragged array like [ [1 2] [1 2 3]] would return a shape of [2 2])."
    [item]
    (if-not (cci/seqable? item)
-     []  ; (shape <scalar>) => []
+     []  ; scalars have no shape (analogous to nil)
      (let [curr-dim   (count item)
            sub-shape  (shape (first item)) ]
        (into [curr-dim] sub-shape) )))
@@ -67,7 +67,7 @@
                  (= 0 (rem ncols 3)) )) ] ; multiple of 3
   }
   (->> scan-lines                   ; shape=[3 3n]   where n=num-digits
-       (mapv #(partition 3 %) )     ; shape=[3 n 3]
+       (mapv #(partition 3 %) )     ; shape=[3 n 3]  like a list of [n 3] matrixes
        (apply mapv concat     ) ))  ; shape=[n 9]
 
 (defn parse-entry
@@ -82,12 +82,14 @@
 (def digkey->digpat  (zipmap all-digkeys all-digpats ))  ; maps digit-key -> digit-pattern
 (def digpat->digkey  (zipmap all-digpats all-digkeys ))  ; maps digit-pattern -> digit-key
 
-; Maps from digit-key to numeric digit. Invalid digits found during parsing will result in
-; a digit-key value of nil.  Map nil digkey values to the '?' character for output.
-(def digkey->digit   (conj (zipmap all-digkeys all-digits ) { nil \? } ))
+(def digkey->digit   
+  "Maps from digit-key to numeric digit. 
+   Maps nil digit-key values to the '?' character for output."
+  (conj (zipmap all-digkeys all-digits ) 
+        { nil \? } ) )
 
 (defn digpats->lines
-  "Format a sequence of digit patterns into 3 separate lines"
+  "Formats a sequence of digit patterns into 3 separate lines"
   [digpats] ; shape=[n 9]
   { :pre [ (= 9 (second (shape digpats))) ] }
   (->> digpats                       ; shape=[n 9]
@@ -96,7 +98,7 @@
        (mapv str/join         )))    ; convert to string
 
 (defn digpats->str
-  "Format a sequence of digit patterns into a single 3-line string."
+  "Formats a sequence of digit patterns into a single 3-line string."
   [digpats]
   { :pre [ (= 9 (second (shape digpats))) ] }
   (->> digpats
@@ -104,8 +106,8 @@
       (lines->str     ) ))
 
 (defn digpats->digkeys
-  "Converts a sequence of digit-pattern values into a vector of digit-key values. Output
-  vector will contain nil for unrecognized (i.e. illegible) digit-patterns."
+  "Converts a sequence of digit-pattern values into a vector of digit-key values.
+  unrecognized (i.e. illegible) digit-patterns map to nil in output."
   [digpats]
   (mapv digpat->digkey digpats) )
 
@@ -156,8 +158,8 @@
        entry-valid? ))
 
 (defn calc-pattern-dist
-  "Returns the Mahalanobis distance between a entry digit-pattern and each the canonical digit
-  pattern, calculated as the number of elements where they differ."
+  "Returns the Mahalanobis distance between a entry digit-pattern and each canonical digit
+  pattern, calculated as the number of characters where they differ."
   [entry-digpats]
   (vec (for [entry-pat entry-digpats]
     (vec (for [canon-pat all-digpats]
@@ -170,26 +172,34 @@
   digit-strings that have valid checksums and are within the maximum allowed distance of
   the entry pattern."
   [entry-digpats]
-  (let [fix-dists     (calc-pattern-dist entry-digpats)
-        swap-list     (filter truthy? (flatten
-                        (for [iDigit (range (count entry-digpats)) ]  ; entry digpat idx
-                          (for [iCanon (range (count all-digpats)) ]  ; canonical digpat idx
-                            (let [dist (get-in fix-dists [iDigit iCanon]) ]
-                              (when (<= dist max-fix-distance) 
-                                {:iDigit iDigit :iCanon iCanon :dist dist}
-                              ) )))))
-        poss-digkeys  (filter truthy? (flatten
-                        (for [swapper swap-list]
-                          (let [mod-digpats 
-                                    (assoc entry-digpats 
-                                        (:iDigit swapper) ; idx of digpat to replace
-                                        (all-digpats (:iCanon swapper)) ) ; digpat to use
-                                mod-digkeys (->> mod-digpats digpats->digkeys)
-                          ] (when (entry-valid? mod-digkeys)
-                              {:val mod-digkeys} )
-                          ))))
-        fix-digstrs  (mapv #(digkeys->digstr (:val %) ) poss-digkeys)
-  ] fix-digstrs ))
+  (let [
+    ; Calculate the distance from each entry digit-pattern to a cononical digit-pattern
+    fix-dists       (calc-pattern-dist entry-digpats)  ; shape=[9 10]
+
+    ; Make a list of all digpat swaps that are within allowable distance
+    swap-list       (filter truthy? (flatten
+                      (for [iDigit (range (count entry-digpats)) ]  ; entry digpat idx
+                        (for [iCanon (range (count all-digpats)) ]  ; canonical digpat idx
+                          (let [dist (get-in fix-dists [iDigit iCanon]) ]
+                            (when (<= dist max-fix-distance) 
+                              {:iDigit iDigit :iCanon iCanon :dist dist}
+                            ) )))))
+
+    ; Filter out all swaps that do not result in a valid checksum
+    fixed-digkeys   (filter truthy? (flatten
+                      (for [swapper swap-list]
+                        (let [mod-digpats 
+                                  (assoc entry-digpats 
+                                      (:iDigit swapper) ; idx of digpat to replace
+                                      (all-digpats (:iCanon swapper)) ) ; digpat to use
+                              mod-digkeys (->> mod-digpats digpats->digkeys)
+                        ] (when (entry-valid? mod-digkeys)
+                            {:val mod-digkeys} )
+                        ))))
+
+    ; Convert from digit-keys to a digit string
+    fix-digstrs     (mapv #(digkeys->digstr (:val %) ) fixed-digkeys)
+  ] fix-digstrs ))  ; return the legal fixed digit-strings
 
 (defn display-msg
   "Displays a nicely format status message."
