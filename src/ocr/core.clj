@@ -239,20 +239,19 @@
                               (if-not entry-valid "ERR" "   " ) )
     ]
       (log/msg)
-      (log/msg (digpats->str digpats))
-      (log/ext "exp:" (:expected test-case) )
+      (log/msg (->> digpats digpats->str))  ; digit-patterns as read
+      (log/ext "exp:" (:expected test-case) )  ; expected values for verification test
       (if entry-valid
-        (display-msg digit-string status-str )
+        (display-msg digit-string status-str )  ; successful read valid data
       ;else - invalid entry read from machine
-        (let [ fix-digstrs (calc-fix-digstrs digpats)
+        (let [ fix-digstrs (calc-fix-digstrs digpats)  ; list of "fixed" digit-strings
         ] (cond (= 1 (count fix-digstrs))
-                  ; Only 1 possible correct value with (dist=1). Report it as the answer but
+                  ; Only 1 possible correct value. Report it as the answer but
                   ; label it as "FIX" to indicate auto-correct has occurred.
-                  (let [fixed-digstr (first fix-digstrs) ]
-                    (display-msg fixed-digstr "FIX") )
+                  (display-msg (first fix-digstrs) "FIX")
                 (< 1 (count fix-digstrs))
-                  ; Multiple possible correct values with (dist=1) exist. Report the
-                  ; original scanned string and the possible ambiguous account numbers.
+                  ; Multiple possible correct values exist. Report the original scanned
+                  ; string and the possible ambiguous account numbers.
                   (let [amb-digstr (->>  fix-digstrs
                                          (mapv #(format "'%s'" %) )
                                          (interpose ", "  )
@@ -260,9 +259,9 @@
                                          (format "[%s]"   )  
                                    )]
                     (display-msg digit-string "AMB" amb-digstr ) )
-                :else ; no corrections found
-                    ; Scanned value is incorrect but all values with (dist=1) are invalid.
-                    (display-msg digit-string status-str)
+                :default
+                  ; Scanned value is incorrect but no legal fixed values were found.
+                  (display-msg digit-string status-str)
           ) )))))
 
 (defn do-tests []
@@ -307,7 +306,7 @@
   (assert (= (->> all-digpats digpats->digkeys) all-digkeys ))
   (assert (= (->> all-digkeys digkeys->digpats) all-digpats ))
 
-  (assert (= (digpats->lines all-digpats)
+  (assert (= (->> all-digpats digpats->lines)
               [" _     _  _     _  _  _  _  _ "
                "| |  | _| _||_||_ |_   ||_||_|"
                "|_|  ||_  _|  | _||_|  ||_| _|"] ))
