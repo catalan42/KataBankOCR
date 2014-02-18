@@ -6,7 +6,6 @@
   ))
 
 (log/set-min-level log/MESSAGE)
-(log/set-min-level log/DEBUG)
 
 (def ^:const all-digit-lines 
   "Master pattern defintion for machine output digit patterns (in order)"
