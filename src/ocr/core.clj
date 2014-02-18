@@ -26,6 +26,8 @@
   versions of an entry."
   1 )
 
+(def ^:const checksum-coeffs (vec (range 9 0 -1) )) ; [9..1]
+
 (defn truthy?
   "Returns true if argument is logical true (neither nil nor false);
   otherwise returns false."
@@ -133,8 +135,6 @@
   "Returns true if all digit-keys are legible (i.e. not nil), else false."
   [digkeys]
   (every? truthy? digkeys) )
-
-(def ^:const checksum-coeffs (->> (range 1 10) reverse vec )) ; [9..1]
 
 (defn entry-valid?
   "Returns true if all digit-keys for an entry are legible, and a valid checksum is
