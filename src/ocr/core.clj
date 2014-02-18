@@ -227,21 +227,22 @@
         (map #(hash-map :entry %1  :expected %2)
                          entries    expected-strs )))))
 
-(defn run []
+(defn proc-entries []
+  "Parse (& attempt to correct) all test data entries"
   (doseq [test-case test-data]
     (let [digpats           (parse-entry (:entry test-case))
           digkeys           (->> digpats digpats->digkeys)
+          digit-string      (->> digkeys digkeys->digstr) 
+          is-illegible      (not (valid-digkeys? digkeys))
           entry-valid       (entry-valid? digkeys)
-          entry-illegible   (not (valid-digkeys? digkeys))
-          entry-digstr      (->> digkeys digkeys->digstr) 
-          status-str        (if entry-illegible "ILL" 
+          status-str        (if is-illegible "ILL" 
                               (if-not entry-valid "ERR" "   " ) )
     ]
       (log/msg)
       (log/msg (digpats->str digpats))
       (log/ext "exp:" (:expected test-case) )
       (if entry-valid
-        (display-msg entry-digstr status-str )
+        (display-msg digit-string status-str )
       ;else - invalid entry read from machine
         (let [ fix-digstrs (calc-fix-digstrs digpats)
         ] (cond (= 1 (count fix-digstrs))
@@ -258,10 +259,10 @@
                                          (apply str       )
                                          (format "[%s]"   )  
                                    )]
-                    (display-msg entry-digstr "AMB" amb-digstr ) )
+                    (display-msg digit-string "AMB" amb-digstr ) )
                 :else ; no corrections found
                     ; Scanned value is incorrect but all values with (dist=1) are invalid.
-                    (display-msg entry-digstr status-str)
+                    (display-msg digit-string status-str)
           ) )))))
 
 (defn do-tests []
@@ -337,8 +338,8 @@
     (log/dbg (format "%-10s" digkey) (digkey->digpat digkey)) )
 )
 
-(defonce test-results (do-tests) )  ; Ensure tests run once when code is loaded
+(defonce test-results (do-tests) )  ; Ensure tests proc-entries once when code is loaded
 
 (defn -main [& args]
-  (run) )
+  (proc-entries) )
 
